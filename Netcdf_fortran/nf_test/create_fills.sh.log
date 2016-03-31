@@ -1,0 +1,4 @@
+
+*** Testing creating file with fill values.
+*** SUCCESS!
+PASS create_fills.sh (exit status: 0)

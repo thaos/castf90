@@ -1,0 +1,5 @@
+ 
+ *** Testing netcdf file functions.
+ *** Checking the new inq_path function
+ *** SUCCESS! 
+PASS ftst_path (exit status: 0)

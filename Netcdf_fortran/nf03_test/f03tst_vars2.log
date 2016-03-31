@@ -1,0 +1,4 @@
+ 
+ *** Testing netCDF-4 vars from F77 with new types.
+ *** SUCCESS!
+PASS f03tst_vars2 (exit status: 0)

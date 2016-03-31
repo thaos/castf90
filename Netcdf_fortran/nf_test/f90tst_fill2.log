@@ -1,0 +1,4 @@
+
+ *** Testing netCDF-4 fill values with unlimited dimension.
+ *** SUCCESS!
+PASS f90tst_fill2 (exit status: 0)

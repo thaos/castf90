@@ -1,0 +1,4 @@
+ 
+ *** Testing netCDF-4 compound types from F77 some more.
+ *** SUCCESS!
+PASS f03tst_types2 (exit status: 0)

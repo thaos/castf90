@@ -1,0 +1,4 @@
+ 
+ *** Testing netCDF-4 groups from Fortran 90.
+ *** SUCCESS!
+PASS f90tst_grps (exit status: 0)

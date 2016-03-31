@@ -1,0 +1,7 @@
+ 
+ *** testing simple netCDF-4 file.
+ *** OK!
+ *** Testing simple classic file.
+ *** OK!
+ *** SUCCESS!
+PASS tst_f90_nc4 (exit status: 0)

@@ -1,0 +1,4 @@
+ 
+ *** Testing definition of netCDF-4 vars from Fortran 90.
+ *** SUCCESS!
+PASS f90tst_vars3 (exit status: 0)

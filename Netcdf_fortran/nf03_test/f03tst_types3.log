@@ -1,0 +1,4 @@
+ 
+ *** Testing netCDF-4 user-defined types and groups.
+ *** SUCCESS!
+PASS f03tst_types3 (exit status: 0)

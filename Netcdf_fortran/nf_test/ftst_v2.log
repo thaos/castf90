@@ -1,0 +1,4 @@
+ 
+ *** Testing v2 fortran API with netCDF-4.
+ *** SUCCESS!
+PASS ftst_v2 (exit status: 0)

@@ -1,0 +1,4 @@
+ 
+ *** Testing definition of netCDF-4 vars from Fortran 77.
+ *** SUCCESS!
+PASS f03tst_vars (exit status: 0)

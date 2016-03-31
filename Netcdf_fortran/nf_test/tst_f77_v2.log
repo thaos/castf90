@@ -1,0 +1,4 @@
+ 
+  *** Testing netCDF v2 api for F77.
+  *** SUCCESS!
+PASS tst_f77_v2 (exit status: 0)

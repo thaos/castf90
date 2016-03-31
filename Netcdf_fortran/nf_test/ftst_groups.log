@@ -1,0 +1,4 @@
+ 
+ *** Testing netCDF-4 groups from F77.
+ *** SUCCESS!
+PASS ftst_groups (exit status: 0)

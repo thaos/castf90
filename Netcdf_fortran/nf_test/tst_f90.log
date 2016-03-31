@@ -1,0 +1,4 @@
+ 
+ *** Testing netCDF-3 Fortran 90 API.
+ *** SUCCESS!
+PASS tst_f90 (exit status: 0)

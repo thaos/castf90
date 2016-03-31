@@ -1,0 +1,4 @@
+ 
+ *** Testing new netCDF-4 types from Fortran 90.
+ *** SUCCESS!
+PASS tst_types (exit status: 0)

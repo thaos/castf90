@@ -1,0 +1,4 @@
+ 
+ *** Testing enum and opaque types.
+ *** SUCCESS!
+PASS f03tst_vars3 (exit status: 0)

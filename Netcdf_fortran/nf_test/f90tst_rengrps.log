@@ -1,0 +1,4 @@
+ 
+ *** Testing netCDF-4 rename groups from Fortran 90.
+ *** SUCCESS!
+PASS f90tst_rengrps (exit status: 0)
