@@ -1,0 +1,5 @@
+# Fortran
+*.o
+*.a
+*.mod
+*.out
