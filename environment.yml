@@ -1,0 +1,10 @@
+# conda env create environment.yml
+name: castf90
+channels:
+  - birdhouse
+dependencies:
+  - python=2
+  - gcc
+  - lapack
+  - lapack95
+  - netcdf-fortran
