@@ -28,24 +28,25 @@ Clone the castf90 github repo:
     $ git clone https://github.com/sradanov/castf90.git
     $ cd castf90
 
-Prepare a conda environment with the dependencies and activate it:
+Create the conda environment `castf90` with necessary dependencies and activate it:
 
 .. code:: bash
 
     $ conda env create -f environment.yml
     $ source activate castf90
 
-or install the castf90 dependencies manually in your current conda enviroment:
+or install the `castf90` dependencies manually in your current conda enviroment:
 
 .. code:: bash
 
-   $ conda install -c birdhouse gcc openblas netcdf-fortran lapack95 cdo nco
+   $ conda install -c birdhouse gcc openblas netcdf-fortran lapack95
    $ conda install -c ioos cdo nco
 
 Build the analogue.out executable:
 
 .. code:: bash
 
+   $ make -f Makefile.conda clean
    $ make -f Makefile.conda
 
 
