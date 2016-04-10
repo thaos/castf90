@@ -6,7 +6,7 @@ channels:
 dependencies:
   - python=2
   - gcc
-  - lapack
+  - openblas
   - lapack95
   - netcdf-fortran
   - cdo
