@@ -38,12 +38,22 @@ TYPE param_type
  INTEGER :: seasonwin
  CHARACTER(20) :: distfun
  LOGICAL :: calccor
+ CHARACTER(10) :: oformat
  LOGICAL :: silent
 END TYPE param_type
+ 
+TYPE atts_type
+ CHARACTER(50) :: simsource
+ CHARACTER(50) :: archisource
+ CHARACTER(50) :: archiperiod
+ CHARACTER(20) :: predictorvar
+ CHARACTER(50) :: predictordom
+END TYPE atts_type
 
 TYPE config_type
  TYPE (files_type) :: files
  TYPE (param_type) :: param
+ TYPE (atts_type) :: atts
 END TYPE config_type
 
 CONTAINS
@@ -54,16 +64,20 @@ IMPLICIT NONE
 CHARACTER(*) :: filename
 TYPE (files_type) :: my_files
 TYPE (param_type) :: my_params
+TYPE (atts_type) :: my_atts
 NAMELIST /FILES/ my_files
 NAMELIST /PARAM/ my_params
+NAMELIST /ATTS/ my_atts
 
 OPEN(10, FILE=TRIM(filename))
   READ(10, NML=FILES)
   READ(10, NML=PARAM)
+  READ(10, NML=ATTS)
 CLOSE(10)
 
 get_configuration%files = my_files
 get_configuration%param = my_params
+get_configuration%atts = my_atts
 
 END FUNCTION get_configuration
 

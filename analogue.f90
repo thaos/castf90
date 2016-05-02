@@ -1,4 +1,4 @@
-!> © LSCE – Laboratory related to CEA/DSF – CNRS – UVSQ, 
+!> © LSCE – Laboratory related to CEA/DRF – CNRS – UVSQ, 
 !! Sabine Radanovics (sabine.radanovics@lsce.ipsl.fr) andPascal Yiou (pascal.yiou@lsce.ipsl.fr)
 !! This source code is part of the CASTf90 software IDDN.FR.001.030008.000.S.P.2016.000.20700
 !!
@@ -23,7 +23,7 @@
 !!
 PROGRAM analogue
 !! Program uses IBM extension SYSTEM()
-USE config
+USE write_file
 USE routines
 USE eofs
 
@@ -55,6 +55,7 @@ REAL(8), ALLOCATABLE :: variance(:), cumvariance(:), sqrootweights(:)
 REAL(8), ALLOCATABLE :: pcs_archi(:,:), pcs_sim(:,:)
 TYPE (dims_type) :: dim_pcsim
 TYPE (dims_type) :: dim_pcarchi
+INTEGER :: maxit
 
 CALL DATE_AND_TIME(clockdate, clocktime)
 PRINT*, clockdate, ' ', clocktime
@@ -144,6 +145,18 @@ SELECT CASE (TRIM(configs%param%distfun))
      & dim_sim, rms, configs%param%nanalog, configs%param%seasonwin, &
      & configs%param%timewin, configs%param%silent, analogue_dates, distances)
     END IF
+ CASE("cosine", "cos")
+  ! compute analogues 
+   IF (configs%param%calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, cosdist, configs%param%nanalog, configs%param%seasonwin, &
+     & configs%param%timewin, configs%param%silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, cosdist, configs%param%nanalog, configs%param%seasonwin, &
+     & configs%param%timewin, configs%param%silent, analogue_dates, distances)
+    END IF
  CASE("mahalanobis")
 ! allocate additional variables needed in case of mahalanobis distance
   ALLOCATE(eigenvalues(dim_archi%lon_dim*dim_archi%lat_dim), &
@@ -214,72 +227,90 @@ END IF
      & configs%param%timewin, configs%param%silent, analogue_dates, distances)
    END IF
  CASE DEFAULT
-   PRINT*, 'No valid distance function found. Please choose one of "rms", "rmse", "euclidean", "mahalanobis", "of", "optical flow".'
+   PRINT*, 'No valid distance function found. Please choose one of "rms", "rmse", "euclidean", &
+    & "cosine", "cos", "mahalanobis", "of", "optical flow".'
    PRINT*, 'Program stops.'
    STOP 
 END SELECT
 ! PRINT*, analogue_dates(:,1), distances(:,1), spatial_corr(:,1)
-! write output with correlations
-IF (configs%param%calccor) THEN
-! construct header
- DO ia=1,configs%param%nanalog
-  IF (ia < 10 ) THEN
-   WRITE(headerpieces(ia), '(A, I1)') 'date.an', ia
-   WRITE(headerpieces(ia+configs%param%nanalog), '(A, I1)') 'dis', ia
-   WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I1)') 'cor', ia
-  ELSE IF (ia < 100) THEN
-   WRITE(headerpieces(ia), '(A, I2)') 'date.an', ia
-   WRITE(headerpieces(ia+configs%param%nanalog), '(A, I2)') 'dis', ia
-   WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I2)') 'cor', ia
-  ELSE 
-   WRITE(headerpieces(ia), '(A, I3)') 'date.an', ia
-   WRITE(headerpieces(ia+configs%param%nanalog), '(A, I3)') 'dis', ia
-   WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I3)') 'cor', ia
+
+SELECT CASE (TRIM(configs%param%oformat))
+ CASE (".nc")
+  maxit = dim_sim%time_dim-configs%param%timewin+1
+  ! write output with correlations
+  IF (configs%param%calccor) THEN
+   CALL write_dates_dists(TRIM(configs%files%outputfile), maxit, &
+    & configs%param%nanalog, dates_sim(1:maxit), analogue_dates(:, 1:maxit), distances(:, 1:maxit), &
+    &  TRIM(configs%param%distfun), configs%atts, spatial_corr(:, 1:maxit))
+  ELSE
+   CALL write_dates_dists(TRIM(configs%files%outputfile), maxit, &
+    & configs%param%nanalog, dates_sim(1:maxit), analogue_dates(:, 1:maxit), distances(:, 1:maxit), &
+    &  TRIM(configs%param%distfun), configs%atts)
   END IF
- END DO 
+ CASE DEFAULT
+ ! write output with correlations
+  IF (configs%param%calccor) THEN
+ ! construct header
+   DO ia=1,configs%param%nanalog
+    IF (ia < 10 ) THEN
+     WRITE(headerpieces(ia), '(A, I1)') 'date.an', ia
+     WRITE(headerpieces(ia+configs%param%nanalog), '(A, I1)') 'dis', ia
+     WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I1)') 'cor', ia
+    ELSE IF (ia < 100) THEN
+     WRITE(headerpieces(ia), '(A, I2)') 'date.an', ia
+     WRITE(headerpieces(ia+configs%param%nanalog), '(A, I2)') 'dis', ia
+     WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I2)') 'cor', ia
+    ELSE 
+     WRITE(headerpieces(ia), '(A, I3)') 'date.an', ia
+     WRITE(headerpieces(ia+configs%param%nanalog), '(A, I3)') 'dis', ia
+     WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I3)') 'cor', ia
+    END IF
+   END DO 
 ! write header
 ! WRITE(headerformat,'(A,I3.3,A)') '(',configs%param%nanalog*3 + 1,'A)'
 ! PRINT*, headerformat, size(headerpieces)
- WRITE(headerline,*) 'date ', headerpieces
+   WRITE(headerline,*) 'date ', headerpieces
 ! PRINT*, 'headerline written' 
- WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', configs%param%nanalog,'F17.3,',configs%param%nanalog,'F13.7 )'
+   WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', configs%param%nanalog,'F17.3,',configs%param%nanalog,'F13.7 )'
 ! PRINT*, formatstring
- OPEN(22,FILE=TRIM(configs%files%outputfile))
-  WRITE(22,'(A)') TRIM(headerline)
-IF (.NOT. configs%param%silent)  PRINT*, 'header written'
+   OPEN(22,FILE=TRIM(configs%files%outputfile))
+    WRITE(22,'(A)') TRIM(headerline)
+  IF (.NOT. configs%param%silent)  PRINT*, 'header written'
 ! write data
-  DO it=1,dim_sim%time_dim-configs%param%timewin+1
-   WRITE(22,TRIM(formatstring)) &
-    & dates_sim(it), analogue_dates(:, it), distances(:, it), spatial_corr(:, it)
-  END DO
- CLOSE(22)
+    DO it=1,dim_sim%time_dim-configs%param%timewin+1
+     WRITE(22,TRIM(formatstring)) &
+      & dates_sim(it), analogue_dates(:, it), distances(:, it), spatial_corr(:, it)
+    END DO
+   CLOSE(22)
 ! write output without correlations
-ELSE
-! construct header
- DO ia=1,configs%param%nanalog
-  IF (ia < 10) THEN
-   WRITE(headerpieces(ia), '(A, I1)') 'date.an', ia
-   WRITE(headerpieces(ia+configs%param%nanalog), '(A, I1)') 'dis', ia
-  ELSE IF (ia < 100 ) THEN
-   WRITE(headerpieces(ia), '(A, I2)') 'date.an', ia
-   WRITE(headerpieces(ia+configs%param%nanalog), '(A, I2)') 'dis', ia
   ELSE
-   WRITE(headerpieces(ia), '(A, I3)') 'date.an', ia
-   WRITE(headerpieces(ia+configs%param%nanalog), '(A, I3)') 'dis', ia
-  END IF
- END DO 
+! construct header
+   DO ia=1,configs%param%nanalog
+    IF (ia < 10) THEN
+     WRITE(headerpieces(ia), '(A, I1)') 'date.an', ia
+     WRITE(headerpieces(ia+configs%param%nanalog), '(A, I1)') 'dis', ia
+    ELSE IF (ia < 100 ) THEN
+     WRITE(headerpieces(ia), '(A, I2)') 'date.an', ia
+     WRITE(headerpieces(ia+configs%param%nanalog), '(A, I2)') 'dis', ia
+    ELSE
+     WRITE(headerpieces(ia), '(A, I3)') 'date.an', ia
+     WRITE(headerpieces(ia+configs%param%nanalog), '(A, I3)') 'dis', ia
+    END IF
+   END DO 
 ! write header
- WRITE(headerline,*) 'date ', headerpieces
- WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', configs%param%nanalog,'F17.3 )'
- OPEN(22,FILE=TRIM(configs%files%outputfile))
-  WRITE(22,'(A)') headerline
+   WRITE(headerline,*) 'date ', headerpieces
+   WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', configs%param%nanalog,'F17.3 )'
+   OPEN(22,FILE=TRIM(configs%files%outputfile))
+    WRITE(22,'(A)') headerline
 ! write data
-  DO it=1,dim_sim%time_dim-configs%param%timewin+1
-   WRITE(22,TRIM(formatstring)) &
-    & dates_sim(it), analogue_dates(:, it), distances(:, it)
-  END DO
- CLOSE(22)
-END IF
+    DO it=1,dim_sim%time_dim-configs%param%timewin+1
+     WRITE(22,TRIM(formatstring)) &
+      & dates_sim(it), analogue_dates(:, it), distances(:, it)
+    END DO
+   CLOSE(22)
+  END IF
+END SELECT
+
 CALL DATE_AND_TIME(clockdate, clocktime)
 PRINT*, clockdate, ' ', clocktime
 

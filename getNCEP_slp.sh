@@ -1,5 +1,5 @@
 #!/bin/sh
-# © LSCE – Laboratory related to CEA/DSM – CNRS – UVSQ, 
+# © LSCE – Laboratory related to CEA/DRF – CNRS – UVSQ, 
 # Sabine Radanovics (sabine.radanovics@lsce.ipsl.fr) andPascal Yiou (pascal.yiou@lsce.ipsl.fr)
 # This script is part of the CASTf90 software IDDN.FR.001.030008.000.S.P.2016.000.20700
 #
@@ -58,6 +58,8 @@ seasonwin=${14}
 distancefun=${15}
 outdir=${16}
 silent=${17}
+nanalog=${18}
+format=${19}
 
 ###########
 # todo: should add a check if the selected domain is inside the region to retrieve...
@@ -134,7 +136,7 @@ cd $sourcedir
 # write simulation filename to configuration file
 cat <<EOF >> config_${date_stamp}.txt
  my_files%simulationfile = "${simdir}sim_${varname}_${dtrstr}${region}_${datestring2}_${namestring}.nc"
- my_files%outputfile ="${outdir}ana_${varname}_${level}_${dtrstr}${distancefun}_${region}_sim_${datestring2}_base_${datestring1}_${namestring}_${lwin}_${seasonwin}.txt"
+ my_files%outputfile ="${outdir}ana_${varname}_${level}_${dtrstr}${distancefun}_${region}_sim_${datestring2}_base_${datestring1}_${namestring}_${lwin}_${seasonwin}_${nanalog}${format}"
 /
 EOF
 date=`date +"%d/%m/%Y (%H:%M:%S)"`
