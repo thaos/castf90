@@ -316,6 +316,10 @@ run\_analogs\_case.sh accepts a number of options:
  \begin{verbatim}
   ./run_analogs_case.sh -P/home/scratch01/sradanov/A2C2/NCEP/
  \end{verbatim}
+ \item Output file format option
+ \begin{itemize}
+  \item \textbf{-f}\textbf{$<$file extension$>$} So far \textit{.txt} (ascii) and  \textit{.nc} (netcdf4) are supported.
+ \end{itemize}
  \item Options related to the geographical region of interest:
  \begin{itemize}
   \item \textbf{-R}\textit{$<$region name$>$} Known region names are NA (North Atlantic) and NHmid (Northern Hemisphere midlatitudes). This region is used at the time of data download. Using a limited number of large regions for downloads avoids to store a version of the data for every domain one might want to use and to skip the download step if the data is already present. The -D option allows then to specify the spatial domain the analogues are actually calculated upon. New regions can be added in the script retrieve.sh from line 20 on.
@@ -365,6 +369,7 @@ run\_analogs\_case.sh accepts a number of options:
   \item \textbf{-d}\textit{$<$distance$>$} Name of the distance to use for analogue calculation. Supported distances are (in increasing order of complexity):
   \begin{itemize}
    \item \textit{euclidean} (or equivalently \textit{rms}, \textit{rmse})
+   \item \textit{cosine} (or equivalently \textit{cos}) Which is the cosine distance \[dist = - \frac{\sum_{i=1}^n A_i B_i}{\sqrt{\sum_{i=1}^n A_i^2} \sqrt{\sum_{i=1}^n B_i^2}}\]
    \item \textit{mahalanobis}
    \item \textit{of}  (or equivalently \textit{opticalflow}) Which is a displacement and amplitude difference similar to \cite{keil09a} derived using the optical flow field deformation technique \citep{marzban10a}. (Experimental...)
   \end{itemize}
@@ -405,8 +410,15 @@ Suppose you have already constructed your input data files, you can run the fort
  my_params%calccor = .TRUE.
  my_params%silent = .FALSE.
 /
+&ATTS
+ my_atts%simsource = "NCEP"
+ my_atts%predictorvar = "slp"
+ my_atts%archisource = "NCEP"
+ my_atts%archiperiod = "1973-01-01,2012-12-31"
+ my_atts%predictordom = "-80.0,50.0,22.5,70.0"
+/
 \end{verbatim}
-There are two groups: \textit{\&FILES} and \textit{\&PARAMS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file and the output file respectively. These are character chain type variables and thus the values need to be in double quotes.
+There are three groups: \textit{\&FILES}, \textit{\&PARAMS} and \textit{\&ATTS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file and the output file respectively. These are character chain type variables and thus the values need to be in double quotes.
 
 In the \textit{\&PARAMS} group:
 \begin{itemize}
@@ -420,6 +432,8 @@ In the \textit{\&PARAMS} group:
  \item \textit{my\_params\%calccor} .TRUE. for additional rank correlation output, .FALSE. otherwise. (see -c option)
  \item \textit{my\_params\%silent} .TRUE. for silent mode, .FALSE. otherwise.
 \end{itemize}
+
+The \textit{\&ATTS} group is important if the output is written in netcdf format, since it allows to set some global attributes of the output file. All veriables are character chain type variables and thus the values need to be in double quotes.
 
 Then run the program analogue.out with the configuration file as an argument.
 \begin{verbatim}

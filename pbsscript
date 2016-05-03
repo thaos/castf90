@@ -53,6 +53,15 @@ cd /home/users/sradanov/Code/Analogue/RSdev
 #./run_analogs_case.sh -D-20.0,20.0,40.0,60.0 -S1976-12-01,1977-02-28 -B1960-01-01,2012-12-31 -w30 -drms -vpr_wtr.eatm -p/home/estimr2/sradanov/A2C2/NCEP/ -P/home/estimr2/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
 #./run_analogs_case.sh -D-20.0,20.0,40.0,60.0 -S1994-12-01,1995-02-28 -B1960-01-01,2012-12-31 -w30 -drms -vpr_wtr.eatm -p/home/estimr2/sradanov/A2C2/NCEP/ -P/home/estimr2/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
 #./run_analogs_case.sh -S1960-01-01,2012-12-31 -B1960-01-01,2012-12-31 -w30 -dmahalanobis -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
-./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1960-01-01,2012-12-31 -w30 -drms -vhgt -l500 -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+#./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1960-01-01,2012-12-31 -w30 -drms -vhgt -l500 -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+#./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1957-01-01,1984-12-31 -w30 -drms -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+#./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1985-01-01,2012-12-31 -w30 -drms -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+./run_analogs_case.sh -S1952-01-01,1991-12-31 -B1952-01-01,1991-12-31 -w30 -dcosine -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+#./run_analogs_case.sh -S1952-01-01,1991-12-31 -B1973-01-01,2012-12-31 -w30 -drms -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+#./run_analogs_case.sh -S1973-01-01,2012-12-31 -B1952-01-01,1991-12-31 -w30 -drms -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+./run_analogs_case.sh -S1973-01-01,2012-12-31 -B1973-01-01,2012-12-31 -w30 -dcosine -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+
+./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1952-01-01,1991-12-31 -w30 -dcosine -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1973-01-01,2012-12-31 -w30 -dcosine -f.nc -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
 
 

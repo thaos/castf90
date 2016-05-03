@@ -1,9 +1,9 @@
 INCLUDEPATH = /usr/include
-INCLUDEPATH2 = ./Lapack95
+INCLUDEPATH2 = ./lapack95
 LIBPATH = /usr/lib64
-#LIBPATH2 = /usr/lib64
+LIBPATH2 = ./lapack95
 lib1 = -lnetcdff
-lib2 = -llapack95
+lib2 = -llapack95 
 lib3 = -llapack
 #COMPILE = ifort -mkl -c -O2 -ipo -check all,noarg_temp_created -warn all -openmp 
 COMPILE = gfortran -c -O3 -Warray-bounds -fopenmp -ffree-line-length-0 
@@ -12,7 +12,8 @@ COMPILE = gfortran -c -O3 -Warray-bounds -fopenmp -ffree-line-length-0
 LINK = gfortran  -Warray-bounds -Wall -fopenmp -O3 -o 
 
 netcdf = netcdf.mod
-lapack = f95_lapack.mod
+#lapack = f95_lapack.mod
+lapack = lapack95.mod
 
 PROGRAM = analogue.out
 prog.f90 = analogue.f90
@@ -34,6 +35,11 @@ read.o: read.f90
 	$(COMPILE) read.f90 -I$(INCLUDEPATH)
 read.mod: read.o
 	@true
+
+write.o: write.f90 config.mod
+	$(COMPILE) write.f90 -I$(INCLUDEPATH)
+write.mod: write.o
+	@true
 	
 distance.o: distance.f90
 	$(COMPILE) distance.f90 -I$(INCLUDEPATH) -I$(INCLUDEPATH2)
@@ -46,9 +52,9 @@ routines.mod: routines.o
 	@true
 
 # analogues	
-$(prog.o): config.mod routines.mod eofs.mod $(prog.f90)
+$(prog.o): write.mod routines.mod eofs.mod $(prog.f90)
 	$(COMPILE) $(prog.f90) -I$(INCLUDEPATH)
 
-$(PROGRAM): $(prog.o) config.o read.o distance.o routines.o eofs.o
-	$(LINK) $(PROGRAM) read.o config.o distance.o routines.o eofs.o $(prog.o) -I$(INCLUDEPATH) -I$(INCLUDEPATH2) -L$(LIBPATH) $(lib1) $(lib2) $(lib3)
+$(PROGRAM): $(prog.o) config.o read.o write.o distance.o routines.o eofs.o
+	$(LINK) $(PROGRAM) read.o config.o write.o distance.o routines.o eofs.o $(prog.o) -I$(INCLUDEPATH) -I$(INCLUDEPATH2) -L$(LIBPATH) -L$(LIBPATH2) $(lib1) $(lib2) $(lib3)
 

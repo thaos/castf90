@@ -24,11 +24,11 @@ cd ..
 # install lapack95 interface
 echo 'install lapack95 interface ...'
 
-cd Lapack95/SRC
+cd lapack95/
 
-make single_double_complex_dcomplex
+make -f makefile.home build
 
-cd ../..
+cd ../
 
 #mv *.a ../
 

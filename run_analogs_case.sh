@@ -1,5 +1,5 @@
 #!/bin/sh -l
-# © LSCE – Laboratory related to CEA/DSM – CNRS – UVSQ, 
+# © LSCE – Laboratory related to CEA/DRF – CNRS – UVSQ, 
 # Sabine Radanovics (sabine.radanovics@lsce.ipsl.fr) andPascal Yiou (pascal.yiou@lsce.ipsl.fr)
 # This script is part of the CASTf90 software IDDN.FR.001.030008.000.S.P.2016.000.20700
 #
@@ -58,12 +58,13 @@ varname=slp
 level=surface
 detrend=FALSE
 silent=bla
+format=.txt
 
 #please set this line to the directory containing the source.
 sourcedir=${HOME}/Code/Analogue/RSdev
 
 # processing arguments
-while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:h:' opt ; do
+while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:f:h:' opt ; do
  case $opt in
   D) pdomain=$OPTARG ;;
   C) lwin=$OPTARG ;;
@@ -83,6 +84,7 @@ while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:h:' opt ; do
   l) level=$OPTARG ;;
   t) detrend=$OPTARG ;;
   s) silent=$OPTARG ;;
+  f) format=$OPTARG ;;
   h) echo -e "Usage: $0 [options] \n" ; 
    echo -e "Options: \n" ;
    echo "  -D<lonmin>,<lonmax>,<latmin>,<latmax> (predictor domain def: $pdomain )" ;
@@ -94,6 +96,7 @@ while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:h:' opt ; do
    echo "  -P<path to base data> (def: $basedir)" ;
    echo "  -p<path to simulation data> (def: $simdir)" ;
    echo "  -o<path to write output file> (def: $outdir)" ;
+   echo "  -f<fileextension> output file format. '.txt' and '.nc' supported" ;   
    echo "  -N<mode> define which seasonal cycle should be removed. Choose" ;
    echo "     base to remove cycle of the data base/archive from all data sets" ;
    echo "     sim to remove cycle of the simulation data set from all data sets (caution : make sure that the simulation is sufficiently long for meaningful cycle calculation)" ;
@@ -104,6 +107,7 @@ while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:h:' opt ; do
    echo "  -c<logical> TRUE if correlation should be calculated as an additional diagnostic, FALSE if not (def: TRUE)" ;
    echo "  -w<numberofdays> (number of days +- around the target day to consider as candidates. def: $seaonwin)" ;
    echo "  -d<distance> name of the distance to use for analogue calculation (def: $distancefun)" ;
+   echo "     rms, cosine, mahalanobis or of" ;
    echo "  -n<numberofanalogues> Number of closest analogue dates to write to output (def: $nanalog)" ;
    echo "  -v<varname> name of the NCEP field to download" ;
    echo "     The name has to be the same as in the filename in the NCEP database (def:$varname)" ;
@@ -119,7 +123,7 @@ done
 module load cdo/1.6
 ## Telechargement des reanalyses:
 if [ $silent != "ilent" ]; then echo -e "Downloading NCEP SLP data"; fi
-./getNCEP_slp.sh ${pdomain} ${region} ${basedir} ${pbase} ${simdir} ${psim} ${sourcedir} ${varname} ${level} ${detrend} ${seacycnorm} ${date_stamp} ${lwin} ${seasonwin} ${distancefun} ${outdir} ${silent}
+./getNCEP_slp.sh ${pdomain} ${region} ${basedir} ${pbase} ${simdir} ${psim} ${sourcedir} ${varname} ${level} ${detrend} ${seacycnorm} ${date_stamp} ${lwin} ${seasonwin} ${distancefun} ${outdir} ${silent} ${nanalog} ${format}
 
 case $seacycnorm in
   none) sesync=.FALSE. ;;
@@ -137,6 +141,7 @@ cat <<EOF >> config_${date_stamp}.txt
  my_params%seasonwin = $seasonwin
  my_params%distfun = "${distancefun}"
  my_params%calccor = .${calccor}.
+ my_params%oformat = "${format}"
 EOF
 
 if [ $silent != "ilent" ]; then 
@@ -150,6 +155,16 @@ cat <<EOF >> config_${date_stamp}.txt
 /
 EOF
 fi
+
+cat <<EOF >> config_${date_stamp}.txt
+&ATTS
+ my_atts%simsource = "NCEP"
+ my_atts%predictorvar = "${varname}"
+ my_atts%archisource = "NCEP"
+ my_atts%archiperiod = "${pbase}"
+ my_atts%predictordom = "${pdomain}"
+/
+EOF
 
 module load netcdf/4p
 

@@ -22,8 +22,9 @@
 !! and that you accept its terms.
 !!
 MODULE distance
-!USE lapack95
-USE f95_lapack
+USE lapack95
+
+
 CONTAINS
 
 !> calculates euclidean (squared) distance between two arrays of type real
@@ -40,6 +41,22 @@ rms = SQRT(SUM((arr_test-arr_ref)**2)/(nx*ny))
 END FUNCTION rms
 
 !****************************
+
+!> calculates cosine distance between two arrays of type real
+FUNCTION cosdist(arr_test,arr_ref,nx,ny)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: nx
+INTEGER, INTENT(IN) :: ny
+REAL(8), INTENT(IN) :: arr_test(nx,ny)
+REAL(8), INTENT(IN) :: arr_ref(nx,ny)
+REAL(8) :: cosdist
+
+cosdist = SUM(arr_test*arr_ref)/(SQRT(SUM(arr_test**2))*SQRT(SUM(arr_ref**2)))
+cosdist = -cosdist
+
+END FUNCTION cosdist
+
+!*******************************
 
 !> displacement and amplitude  distance based on optical flow field deformation.
 FUNCTION of(arr_test, arr_ref, nx, ny, info)
@@ -188,7 +205,7 @@ END DO
 !PRINT*, gradmat(1,:)
 !PRINT*, nx, ny, mcount
 ! linear model (lapack library) to derive beta 0-2, that is intensity error, delta x and delta y
-CALL la_gels(gradmat,beta,'N',info)
+ CALL gels(gradmat,beta,'N',info) 
 IF (PRESENT(infoin) .AND. infoin == 3) THEN
  PRINT*, 'lm beta ', beta(1:3)
 ! optimise betas using function with non-linear terms and BFGS optimisation
