@@ -78,6 +78,8 @@ END IF
 dim_archi = get_dims(TRIM(configs%files%archivefile))
 dim_sim = get_dims(TRIM(configs%files%simulationfile))
 IF (.NOT. configs%param%silent) PRINT*, "got dimensions"
+!print*, dim_archi
+!print*, dim_sim
 ! verify that lat and lon dimensions are equally long in archive and simulation file
 IF (dim_archi%lon_dim == dim_sim%lon_dim .AND. dim_archi%lat_dim == dim_sim%lat_dim) THEN 
 ! allocate data arrays
@@ -155,6 +157,18 @@ SELECT CASE (TRIM(configs%param%distfun))
    ELSE 
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
      & dim_sim, cosdist, configs%param%nanalog, configs%param%seasonwin, &
+     & configs%param%timewin, configs%param%silent, analogue_dates, distances)
+    END IF
+ CASE("s1","S1","TWS","tws")
+  ! compute analogues 
+   IF (configs%param%calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, S1, configs%param%nanalog, configs%param%seasonwin, &
+     & configs%param%timewin, configs%param%silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, S1, configs%param%nanalog, configs%param%seasonwin, &
      & configs%param%timewin, configs%param%silent, analogue_dates, distances)
     END IF
  CASE("mahalanobis")
