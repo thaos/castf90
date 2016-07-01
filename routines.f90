@@ -209,6 +209,8 @@ CHARACTER(10) :: clocktime
 INTEGER :: sorted_ind(nanalog)
 !REAL :: sorted_dist(dim_archi%time_dim)
 
+!PRINT*, dim_archi%calendar
+
 CALL DATE_AND_TIME(clockdate, clocktime)
 IF (.NOT. silent) PRINT*,'begin sim loop', clockdate, ' ', clocktime
 IF (PRESENT(spatial_corr) .AND. PRESENT(ranks_archi) .AND. PRESENT(ranks_sim)) THEN
@@ -223,7 +225,7 @@ IF (PRESENT(spatial_corr) .AND. PRESENT(ranks_archi) .AND. PRESENT(ranks_sim)) T
   candidate_indices=0
   candidate_indices(1:(dim_archi%time_dim-timewin+1),1) = get_candidates(dim_archi%time_dim-timewin+1, &
    & dates_archi(1:(dim_archi%time_dim-timewin+1)), dates_sim(st), &
-   & seasonwin)
+   & seasonwin, TRIM(dim_archi%calendar))
 !  READ(*,*)
   candilen = COUNT(candidate_indices(:,1) > 0)
 !  PRINT*, candidate_indices(candilen,1)
@@ -263,7 +265,7 @@ ELSE
 !PRINT*, st
   candidate_indices(1:(dim_archi%time_dim-timewin+1),1) = get_candidates(dim_archi%time_dim-timewin+1, &
    & dates_archi(1:(dim_archi%time_dim-timewin+1)), dates_sim(st), &
-   & seasonwin)
+   & seasonwin, TRIM(dim_archi%calendar))
   candilen = COUNT(candidate_indices(:,1) > 0)
 !  PRINT*, 'candilen', candilen, candidate_indices(candilen,1)
 ! Define the candidate dates in the case of multi-day average distance as the days following the initial ones.
@@ -419,12 +421,13 @@ END FUNCTION get_dist
 !> Select the candidate dates from the archive period. 
 !! This includes all days within a given season window around the simulated day 
 !! and from different years than the simulated day.
-FUNCTION get_candidates(tdim, dates_archi, date_target, seasonwin)
+FUNCTION get_candidates(tdim, dates_archi, date_target, seasonwin, archi_calendar)
 IMPLICIT NONE
 INTEGER, INTENT(IN) :: tdim 
 INTEGER, INTENT(IN) :: dates_archi(tdim)
 INTEGER, INTENT(IN) :: date_target
 INTEGER, INTENT(IN) :: seasonwin
+CHARACTER(*), INTENT(IN) :: archi_calendar
 INTEGER :: get_candidates(tdim)
 
 INTEGER :: at
@@ -437,6 +440,8 @@ INTEGER :: range_exclude(2)
 INTEGER :: mmdd_permitted(2*seasonwin+1)
 INTEGER :: nonleapadd
 
+!PRINT*, archi_calendar
+
 !PRINT*, tdim
 get_candidates = 0
 ! seperate archive and target year from month and day
@@ -444,36 +449,169 @@ yyyy_archi = dates_archi/10000
 yyyy_target = date_target/10000
 mmdd_archi = MOD(dates_archi,10000)
 mmdd_target = MOD(date_target,10000)
+SELECT CASE (archi_calendar)
+ CASE ("360_day")
+!  PRINT*, '360 calendar'
 ! calculate the dates to be excluded because they are within one year from the simulated date
-range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
-range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
-! get all month+day combinations that are within the season window in leapyears and 
-! an additional day for non-leapyears when the 29th of february is contained in the interval.
-CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
-!PRINT*, mmdd_permitted, nonleapadd
-k=0
+  range_exclude(1) = civildate2int_day(add_days_360cal(int2civildate(date_target),-180))
+  range_exclude(2) = civildate2int_day(add_days_360cal(int2civildate(date_target),180))
+! get all month+day combinations that are within the season window (no leapyear in 360 day calendar)
+  CALL get_mmdd_permitted_360cal(mmdd_target, seasonwin, mmdd_permitted)
+  k=0
 ! loop over all archive days
-DO at=1,tdim
+  DO at=1,tdim
 ! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
 ! If the day has a valid month+day combination ...
- IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) ) THEN
 ! and is not in the excluded range (because it is to close to the simulation date)
-  IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
 ! increase the candidate count and store it as a candidate index
       k=k+1
       get_candidates(k) = at
-   ELSE 
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
     CYCLE
    END IF
- ELSE
-  CYCLE
- END IF
-END DO
+  END DO
+ CASE ("365_day") ! no leap years
+! PRINT*, '365 calendar'
+! calculate the dates to be excluded because they are within one year from the simulated date
+  range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
+  range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
+! get all month+day combinations that are within the season window in leapyears and 
+! an additional day for non-leapyears when the 29th of february is contained in the interval.
+  CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
+!PRINT*, mmdd_permitted, nonleapadd
+  k=0
+! loop over all archive days
+  DO at=1,tdim
+! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
+! If the day has a valid month+day combination ...
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. mmdd_archi(at)==nonleapadd) THEN
+! and is not in the excluded range (because it is to close to the simulation date)
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+! increase the candidate count and store it as a candidate index
+      k=k+1
+      get_candidates(k) = at
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
+    CYCLE
+   END IF
+  END DO
+ CASE ("proleptic_gregorian") ! leap years every 4 years without exeption every 100 years except 400. (MPI model)
+! PRINT*, 'proleptic_gregorian'
+! calculate the dates to be excluded because they are within one year from the simulated date
+  range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
+  range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
+! get all month+day combinations that are within the season window in leapyears and 
+! an additional day for non-leapyears when the 29th of february is contained in the interval.
+  CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
+!PRINT*, mmdd_permitted, nonleapadd
+  k=0
+! loop over all archive days
+  DO at=1,tdim
+! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
+! If the day has a valid month+day combination ...
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear_proleptic_greg(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
+! and is not in the excluded range (because it is to close to the simulation date)
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+! increase the candidate count and store it as a candidate index
+      k=k+1
+      get_candidates(k) = at
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
+    CYCLE
+   END IF
+  END DO
+ CASE DEFAULT ! standard calendar
+
+!  PRINT*, 'standard calendar'
+! calculate the dates to be excluded because they are within one year from the simulated date
+  range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
+  range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
+! get all month+day combinations that are within the season window in leapyears and 
+! an additional day for non-leapyears when the 29th of february is contained in the interval.
+  CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
+!PRINT*, mmdd_permitted, nonleapadd
+  k=0
+! loop over all archive days
+  DO at=1,tdim
+! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
+! If the day has a valid month+day combination ...
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
+! and is not in the excluded range (because it is to close to the simulation date)
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+! increase the candidate count and store it as a candidate index
+      k=k+1
+      get_candidates(k) = at
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
+    CYCLE
+   END IF
+  END DO
+END SELECT
 !PRINT*, get_candidates(1:370)
 !STOP
 END FUNCTION get_candidates
 
 ! **************************
+
+
+!> Define month+day combinations within a given seasonwindow for 360 day calendar case
+SUBROUTINE get_mmdd_permitted_360cal(mmdd, seasonwin, permitted)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: mmdd
+INTEGER, INTENT(IN) :: seasonwin
+INTEGER, INTENT(OUT) :: permitted(2*seasonwin+1)
+
+INTEGER :: mm, dd
+INTEGER :: ic
+INTEGER :: id
+
+permitted=0
+
+mm=mmdd/100
+dd=MOD(mmdd,100)
+id =1
+! start from simulation month+day
+permitted(1) = mmdd
+! add the seasonwin following days to the permitted ones
+DO ic=1,seasonwin
+ id=id+1
+ dd=dd+1
+ IF (dd > 30) THEN
+  mm = mm+1
+  IF (mm > 12) mm = 1
+  dd = 1
+ END IF
+ permitted(id) = mm*100+dd
+END DO
+! start again from the simulation day
+mm=mmdd/100
+dd=MOD(mmdd,100)
+! this time go backwards and add the seasonwin preceeding days to the permitted ones
+DO ic=1,seasonwin
+ id=id+1
+ dd=dd-1
+ IF (dd < 1) THEN
+  mm = mm-1
+  IF (mm < 1) mm = 12
+  dd = 30
+ END IF
+ permitted(id) = mm*100+dd
+END DO
+
+END SUBROUTINE get_mmdd_permitted_360cal
+
+!*******************************
 
 !> Define month+day combinations within a given seasonwindow in leapyears and
 !! if necessary a day to add for non-leap years.
@@ -661,6 +799,21 @@ END IF
 
 END FUNCTION is_leapyear
 
+!*********************************
+
+LOGICAL FUNCTION is_leapyear_proleptic_greg(yyyy)
+IMPLICIT NONE
+INTEGER :: yyyy
+
+IF (MOD(yyyy, 4) /= 0) THEN
+  is_leapyear_proleptic_greg = .FALSE.
+ELSE
+  is_leapyear_proleptic_greg = .TRUE.
+END IF
+
+END FUNCTION is_leapyear_proleptic_greg
+
+
 ! ***************************************
 
 !> takes a date in integer format YYYYMMDD and returns a date in civildate_type.
@@ -680,6 +833,42 @@ int2civildate%hh = 00
 END FUNCTION int2civildate
 
 !*******************************
+
+!> adds a number of days (plusdays) to a date (ref_date) for 360 day calendar
+!! every month has 30 days
+TYPE (civildate_type) FUNCTION add_days_360cal(ref_date, plusdays)
+IMPLICIT NONE
+TYPE (civildate_type) :: ref_date
+INTEGER :: plusdays
+TYPE (civildate_type) :: tmp_date
+
+tmp_date=ref_date
+tmp_date%dd=tmp_date%dd+plusdays
+DO WHILE (tmp_date%dd <= 0)
+!PRINT*, 'tmp_date', tmp_date
+ tmp_date%mm = tmp_date%mm-1
+ IF (tmp_date%mm <= 0) THEN
+  tmp_date%yyyy=tmp_date%yyyy-1
+  tmp_date%mm=tmp_date%mm+12
+ END IF
+! PRINT*, 'month', tmp_date%mm
+ tmp_date%dd=tmp_date%dd+30
+! PRINT*, 'tmp_date', tmp_date
+END DO
+
+DO WHILE (tmp_date%dd > 30)
+! IF (tmp_date%dd == 31) PRINT*, 'tmp_date', tmp_date
+ tmp_date%dd = tmp_date%dd - 30
+ tmp_date%mm = tmp_date%mm + 1
+ IF (tmp_date%mm > 12) THEN
+  tmp_date%yyyy=tmp_date%yyyy+1
+  tmp_date%mm=tmp_date%mm-12
+ END IF
+END DO 
+add_days_360cal = tmp_date
+END FUNCTION add_days_360cal
+
+! *******************************************
 
 !> adds a number of days (plusdays) to a date (ref_date)
 TYPE (civildate_type) FUNCTION add_days(ref_date, plusdays)

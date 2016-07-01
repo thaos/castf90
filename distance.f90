@@ -226,10 +226,10 @@ END IF
 ! STOP
 !END IF
 ! normalise the components and calculate the length of the distance vector.
-betaoptim(2:3) = betaoptim(2:3)/(/nx, ny/) ! delta x and delta y are normalised by the subdomain dimension.
+!betaoptim(2:3) = betaoptim(2:3)/(/nx, ny/) ! delta x and delta y are normalised by the subdomain dimension.
 betaoptim(1) = betaoptim(1)/(MAXVAL(arr_ref)-MINVAL(arr_ref)) ! the amplitude is normalised by the range  of values within the subdomain.
-oflow = SQRT(SUM(betaoptim**2))
-
+!oflow = SQRT(SUM(betaoptim**2))
+oflow = SQRT(betaoptim(2)**2+betaoptim(3)**2)/SQRT((nx/2)**2. +(ny/2)**2.) + betaoptim(1)
 END FUNCTION oflow
 
 ! **********************************
@@ -438,5 +438,93 @@ END IF
 END FUNCTION isfinite
 
 !**********************************
+
+!> calculate Teweles-Wobus score
+!!
+!! History:
+!! - 20120307: copied from Ben Daoud A2_Saone_calib.f90
+!! - 20120307: changed dimensions of G1 and G2 from G(latitude, longitude) to G(longitude, latitude) plus all changes that follow from that.
+!! - 20160512: changed input fields to type REAL(8), 
+real(8) function S1(G1,G2,idlon,idlat)
+IMPLICIT NONE
+! Declaration
+integer, INTENT(IN) :: idlon,idlat
+real(8), INTENT(IN) :: G1(idlon,idlat),G2(idlon,idlat)
+integer :: i,j
+real(8) :: DG1i,DG2i !(idlon-1,idlat)
+real(8) :: DG1j,DG2j
+real(8) :: G1ij,G2ij
+real(8) :: NumS1,DenomS1
+  
+! Contrele dimensions
+! print *, 'calcul S1 en cours......'
+if (idlon<2 .OR. idlat <2) then
+  WRITE(*,*)'ERREUR dans la fonction S1'
+  WRITE(*,*)'idlon and idlat must be >= 2 !'
+  WRITE(*,*)'Interruption du programme ...'
+  STOP
+end if
+! Initialisation
+
+NumS1 = 0.
+DenomS1 = 0.
+
+! Calcul
+!DO j=1,idlat
+! DO i=1,idlon-1
+!    DG1i = G1(i,j)-G1(i+1,j)
+!    DG2i = G2(i,j)-G2(i+1,j)
+!    NumS1 = NumS1+ ABS(DG1i-DG2i)
+!    DenomS1 = DenomS1+ MAX(ABS(DG1i),ABS(DG2i))
+! END DO
+!END DO
+!DO j=1,idlat-1
+! DO i=1,idlon
+!    DG2j = G2(i,j)-G2(i,j+1)
+!    DG1j = G1(i,j)-G1(i,j+1)
+!    NumS1 = NumS1+ABS(DG1j-DG2j)
+!    DenomS1=DenomS1+ MAX(ABS(DG1j),ABS(DG2j))
+! END DO
+!END DO
+do j=1,idlat-1
+  do i=1,idlon-1
+    G1ij = G1(i,j)
+    G2ij = G2(i,j)
+    DG1i = G1ij-G1(i+1,j)
+    DG1j = G1ij-G1(i,j+1)
+    DG2i = G2ij-G2(i+1,j)
+    DG2j = G2ij-G2(i,j+1)
+    NumS1 = NumS1+ABS(DG1i-DG2i)+ABS(DG1j-DG2j)
+    DenomS1 = DenomS1+Max(ABS(DG1i),ABS(DG2i))+Max(ABS(DG1j),ABS(DG2j))
+  end do
+end do
+
+do j=1,idlat-1
+  DG1j = G1(idlon,j)-G1(idlon,j+1)
+  DG2j = G2(idlon,j)-G2(idlon,j+1)
+  NumS1 = NumS1+ABS(DG1j-DG2j)
+  DenomS1 = DenomS1+Max(ABS(DG1j),ABS(DG2j))
+end do
+
+do i=1,idlon-1
+  DG1i = G1(i,idlat)-G1(i+1,idlat)
+  DG2i = G2(i,idlat)-G2(i+1,idlat)
+  NumS1 = NumS1+ABS(DG1i-DG2i)
+  DenomS1 = DenomS1+Max(ABS(DG1i),ABS(DG2i))
+end do
+
+
+! Calcul de S1
+
+if (DenomS1.EQ.0) then
+  S1 = 0.
+else
+  S1 = 100.*NumS1/DenomS1
+end if
+!  print *, 'calcul S1 termine.... S1 vaut:',S1
+end function S1
+
+! ******************************************
+
 
 END MODULE distance

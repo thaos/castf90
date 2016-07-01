@@ -28,6 +28,7 @@ TYPE dims_type
  INTEGER :: lat_dim
  INTEGER :: lon_dim
  INTEGER :: time_dim
+ CHARACTER(20) :: calendar
 END TYPE dims_type
 
 CONTAINS
@@ -43,10 +44,12 @@ INTEGER :: nDimensions
 CHARACTER*80, ALLOCATABLE :: dimname(:)
 INTEGER, ALLOCATABLE :: dimlen(:)
 INTEGER :: dimid
+INTEGER :: varid
 
 get_dims%lon_dim = -999
 get_dims%lat_dim = -999
 get_dims%time_dim = -999
+get_dims%calendar = "standard"
 
 !PRINT*, "dims init done"
 state = nf90_open(trim(filename),nf90_nowrite,fileid)
@@ -63,6 +66,9 @@ DO dimid = 1, nDimensions
     get_dims%time_dim = dimlen(dimid)
   END IF
 END DO
+! get calendar attribute from time variable
+CALL check(NF90_INQ_VARID(fileid, 'time', varid),fileid)
+CALL check(NF90_GET_ATT(fileid, varid, 'calendar', get_dims%calendar),fileid)
 
 IF (get_dims%lon_dim <= 0 .OR. get_dims%lat_dim <= 0 .OR. get_dims%time_dim <= 0) THEN
   PRINT*, 'no time, lon or lat dimension found in netcdf file ', TRIM(filename),': program stops'
