@@ -237,6 +237,9 @@ IF (PRESENT(spatial_corr) .AND. PRESENT(ranks_archi) .AND. PRESENT(ranks_sim)) T
 !$omp parallel default(shared) private(candidate_indices, candilen, alldist, sorted_ind) 
 !$omp do schedule(static)
  DO st=1,dim_sim%time_dim-timewin+1
+  IF (.NOT. silent) THEN
+   IF (MOD(st,360) == 0) PRINT*, 'starting ', dates_sim(st)
+  END IF  
 ! get candidate dates. 
 ! Candidate dates are all days of the archive period within a seasonal window around the simulated day
 ! and not from the same year as the simulated day.
@@ -277,6 +280,9 @@ ELSE
 !$omp parallel default(shared) private(candidate_indices, candilen, alldist, sorted_ind) 
 !$omp do schedule(static)
  DO st=1,dim_sim%time_dim-timewin+1
+  IF (.NOT. silent) THEN
+   IF (MOD(st,360) == 0) PRINT*, 'starting ', dates_sim(st)
+  END IF 
 ! get candidate dates. 
 ! Candidate dates are all days of the archive period within a seasonal window around the simulated day
 ! and not from the same year as the simulated day.
