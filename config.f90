@@ -27,6 +27,8 @@ TYPE files_type
  CHARACTER(200) :: archivefile
  CHARACTER(200) :: simulationfile
  CHARACTER(200) :: outputfile
+ CHARACTER(200) :: seacycfilebase
+ CHARACTER(200) :: seacycfilesim
 END TYPE files_type
 
 TYPE param_type

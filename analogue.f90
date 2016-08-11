@@ -117,9 +117,9 @@ IF (.NOT. configs%param%silent) PRINT*, "got dates"
 IF (configs%param%seacyc) THEN
  CALL DATE_AND_TIME(clockdate, clocktime)
 IF (.NOT. configs%param%silent) PRINT*,'rm seasonal cycle', clockdate, ' ', clocktime
- var_archi = rm_cyc("seasoncyc_base.nc", var_archi, dates_archi, dim_archi%lon_dim, &
+ var_archi = rm_cyc(TRIM(configs%files%seacycfilebase), var_archi, dates_archi, dim_archi%lon_dim, &
   & dim_archi%lat_dim, dim_archi%time_dim, TRIM(configs%param%varname), configs%param%cycsmooth)
- var_sim = rm_cyc("seasoncyc_sim.nc", var_sim, dates_sim, dim_sim%lon_dim, &
+ var_sim = rm_cyc(TRIM(configs%files%seacycfilesim), var_sim, dates_sim, dim_sim%lon_dim, &
   & dim_sim%lat_dim, dim_sim%time_dim, TRIM(configs%param%varname), configs%param%cycsmooth)
 END IF
 ! precalculate ranks for later rank correlation calculation

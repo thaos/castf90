@@ -73,7 +73,13 @@ IF (lon_dim == dim_cyc%lon_dim .AND. lat_dim == dim_cyc%lat_dim) THEN
   & dates_cyc(dim_cyc%time_dim), moddate_cyc(dim_cyc%time_dim), &
   & test_cyc(dim_cyc%lon_dim, dim_cyc%lat_dim, dim_cyc%time_dim), &
   & test_count(dim_cyc%time_dim))
-ELSE
+ELSE IF (dim_cyc%lon_dim == 1 .AND. dim_cyc%lat_dim == 1) THEN
+! PRINT*, dim_cyc
+ ALLOCATE(var_cyc(dim_cyc%lon_dim, dim_cyc%lat_dim, dim_cyc%time_dim), &
+  & dates_cyc(dim_cyc%time_dim), moddate_cyc(dim_cyc%time_dim), &
+  & test_cyc(dim_cyc%lon_dim, dim_cyc%lat_dim, dim_cyc%time_dim), &
+  & test_count(dim_cyc%time_dim))
+ELSE 
  PRINT*, 'analogue error: lat or lon dimesions differ in data and seasonal cycle file.' 
  PRINT*, 'Program stops'
  STOP
@@ -99,16 +105,29 @@ CLOSE(9)
 ! actually remove cycle
 t=1
 tt=1
-DO WHILE (t <= time_dim)
- IF (moddate(t) == moddate_cyc(tt)) THEN
-  rm_cyc(:,:,t) = raw_data(:,:,t)-var_cyc(:,:,tt)
-  t=t+1
- ELSE IF (tt < dim_cyc%time_dim) THEN
-  tt=tt+1
- ELSE
-  tt=1
- END IF 
-END DO
+IF (dim_cyc%lon_dim == 1 .AND. dim_cyc%lat_dim == 1) THEN
+ DO WHILE (t <= time_dim)
+  IF (moddate(t) == moddate_cyc(tt)) THEN
+   rm_cyc(:,:,t) = raw_data(:,:,t)-var_cyc(1,1,tt)
+   t=t+1
+  ELSE IF (tt < dim_cyc%time_dim) THEN
+   tt=tt+1
+  ELSE
+   tt=1
+  END IF 
+ END DO
+ELSE
+ DO WHILE (t <= time_dim)
+  IF (moddate(t) == moddate_cyc(tt)) THEN
+   rm_cyc(:,:,t) = raw_data(:,:,t)-var_cyc(:,:,tt)
+   t=t+1
+  ELSE IF (tt < dim_cyc%time_dim) THEN
+   tt=tt+1
+  ELSE
+   tt=1
+  END IF 
+ END DO
+END IF
 
 !PRINT*, 'raw = ', raw_data(1,1,391)
 !PRINT*, 'syc = ', var_cyc(1,1,25)
