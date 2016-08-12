@@ -25,6 +25,7 @@ MODULE routines
 
 USE read_files
 USE distance
+USE eofs
 USE omp_lib
 
 TYPE civildate_type
@@ -36,6 +37,200 @@ END TYPE civildate_type
 
 
 CONTAINS
+
+!> Handles the workflow: get data and do calculation. 
+SUBROUTINE mainsub(dim_archi, dim_sim, nanalog, analogue_dates, distances, &
+ & spatial_corr, silent, varname, archivefile, simulationfile, seacyc, &
+ & seacycfilebase, seacycfilesim, cycsmooth, calccor, distfun, seasonwin, &
+ & timewin, dates_sim)
+IMPLICIT NONE
+TYPE (dims_type), INTENT(IN) :: dim_archi
+TYPE (dims_type), INTENT(IN) :: dim_sim
+INTEGER, INTENT(IN) :: nanalog
+INTEGER, INTENT(OUT) :: analogue_dates(nanalog,dim_sim%time_dim)
+REAL(8), INTENT(OUT) :: distances(nanalog,dim_sim%time_dim)
+REAL, INTENT(OUT) :: spatial_corr(nanalog,dim_sim%time_dim)
+LOGICAL, INTENT(IN) :: silent
+CHARACTER(*), INTENT(IN) :: varname
+CHARACTER(*), INTENT(IN) :: archivefile
+CHARACTER(*), INTENT(IN) :: simulationfile
+LOGICAL, INTENT(IN) :: seacyc
+CHARACTER(*), INTENT(IN) :: seacycfilebase
+CHARACTER(*), INTENT(IN) :: seacycfilesim
+INTEGER, INTENT(IN) :: cycsmooth
+LOGICAL, INTENT(IN) :: calccor
+CHARACTER(*), INTENT(IN) :: distfun
+INTEGER, INTENT(IN) :: seasonwin
+INTEGER, INTENT(IN) :: timewin
+INTEGER, INTENT(OUT) :: dates_sim(dim_sim%time_dim)
+
+REAL(8), ALLOCATABLE :: var_archi(:,:,:)
+REAL(8), ALLOCATABLE :: var_sim(:,:,:)
+INTEGER, ALLOCATABLE :: dates_archi(:)
+INTEGER, ALLOCATABLE :: ranks_archi(:,:,:)
+INTEGER, ALLOCATABLE :: ranks_sim(:,:,:)
+CHARACTER(8) :: clockdate
+CHARACTER(10) :: clocktime
+REAL(8), ALLOCATABLE :: eigenvalues(:), eigenvectors(:,:)
+REAL(8), ALLOCATABLE :: variance(:), cumvariance(:), sqrootweights(:)
+REAL(8), ALLOCATABLE :: pcs_archi(:,:), pcs_sim(:,:)
+TYPE (dims_type) :: dim_pcsim
+TYPE (dims_type) :: dim_pcarchi
+INTEGER :: it
+
+! verify that lat and lon dimensions are equally long in archive and simulation file
+ IF (dim_archi%lon_dim == dim_sim%lon_dim .AND. dim_archi%lat_dim == dim_sim%lat_dim) THEN 
+! allocate data arrays
+  ALLOCATE(var_archi(dim_archi%lon_dim, dim_archi%lat_dim, dim_archi%time_dim), &
+   & var_sim(dim_sim%lon_dim, dim_sim%lat_dim, dim_sim%time_dim), &
+   & dates_archi(dim_archi%time_dim), &
+   & ranks_archi(dim_archi%lon_dim, dim_archi%lat_dim, dim_archi%time_dim), &
+   & ranks_sim(dim_sim%lon_dim, dim_sim%lat_dim, dim_sim%time_dim) )
+   
+!PRINT*, "allocated variables"
+ ELSE
+  PRINT*, 'analogue error: lat or lon dimesions differ in archive and simulation file.' 
+  PRINT*, 'Program stops'
+  STOP
+ END IF
+
+! read input files
+ CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*,'read input ', clockdate, ' ', clocktime
+ var_archi = get_data(TRIM(archivefile), TRIM(varname), dim_archi)
+ var_sim = get_data(TRIM(simulationfile), TRIM(varname), dim_sim)
+ IF (.NOT. silent) PRINT*, "got data"
+ dates_archi = get_dates(TRIM(archivefile), dim_archi%time_dim, "base_dates.txt", dim_archi%ncstart(3))
+ dates_sim = get_dates(TRIM(simulationfile), dim_sim%time_dim, "sim_dates.txt", dim_sim%ncstart(3))
+ IF (.NOT. silent) PRINT*, "got dates" 
+
+! remove seasonal cycle, that is calculate anomalies
+ IF (seacyc) THEN
+  CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*,'rm seasonal cycle', clockdate, ' ', clocktime
+  var_archi = rm_cyc(TRIM(seacycfilebase), var_archi, dates_archi, dim_archi%lon_dim, &
+   & dim_archi%lat_dim, dim_archi%time_dim, TRIM(varname), cycsmooth)
+  var_sim = rm_cyc(TRIM(seacycfilesim), var_sim, dates_sim, dim_sim%lon_dim, &
+   & dim_sim%lat_dim, dim_sim%time_dim, TRIM(varname), cycsmooth)
+ END IF
+! precalculate ranks for later rank correlation calculation
+ IF (calccor) THEN
+  CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*,'get ranks ', clockdate, ' ', clocktime
+  ranks_archi = get_ranks(dim_archi,var_archi)
+  ranks_sim = get_ranks(dim_sim, var_sim)
+  CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*, 'get ranks done ', clockdate, ' ', clocktime
+ END IF
+
+ IF (.NOT. silent) PRINT*, distfun
+! select distance to calculate
+SELECT CASE (TRIM(distfun))
+ CASE("rms", "rmse","euclidean")
+   ! compute analogues 
+   IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+    END IF
+ CASE("cosine", "cos")
+  ! compute analogues 
+   IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, cosdist, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, cosdist, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+    END IF
+ CASE("s1","S1","TWS","tws")
+  ! compute analogues 
+   IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, S1, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, S1, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+    END IF
+ CASE("mahalanobis")
+! allocate additional variables needed in case of mahalanobis distance
+  ALLOCATE(eigenvalues(dim_archi%lon_dim*dim_archi%lat_dim), &
+   & eigenvectors(dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%lon_dim*dim_archi%lat_dim), &
+   & variance(dim_archi%lon_dim*dim_archi%lat_dim), cumvariance(dim_archi%lon_dim*dim_archi%lat_dim), &
+   & sqrootweights(dim_archi%lon_dim*dim_archi%lat_dim), &
+   & pcs_archi(dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%time_dim), &
+   & pcs_sim(dim_sim%lon_dim*dim_sim%lat_dim, dim_sim%time_dim))
+   sqrootweights = 1
+! calculate EOFs of archive
+!CALL DATE_AND_TIME(clockdate, clocktime)
+!PRINT*, clockdate, ' ', clocktime
+IF (.NOT. silent) PRINT*, 'calculate EOFs'
+  CALL deof( RESHAPE(var_archi,(/dim_archi%lon_dim*dim_archi%lat_dim,dim_archi%time_dim/)), &
+   & dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%time_dim, &
+   & dim_archi%lon_dim*dim_archi%lat_dim,0 , &
+     & eigenvalues, eigenvectors, variance, cumvariance, &
+     & sqrootweights )
+! PRINT*, 'first eigenvector', eigenvectors(:,1)
+IF (.NOT. silent) THEN 
+ CALL DATE_AND_TIME(clockdate, clocktime)
+ PRINT*, clockdate, ' ', clocktime
+ PRINT*, 'project'
+END IF
+! project archive and simulations of EOFs
+  call deofpcs( RESHAPE(var_archi,(/dim_archi%lon_dim*dim_archi%lat_dim,dim_archi%time_dim/)), &
+   & dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%time_dim, dim_archi%lon_dim*dim_archi%lat_dim, &
+   & eigenvectors, pcs_archi)
+  call deofpcs( RESHAPE(var_sim,(/dim_sim%lon_dim*dim_sim%lat_dim,dim_sim%time_dim/)), &
+   & dim_sim%lon_dim*dim_sim%lat_dim, dim_sim%time_dim, dim_sim%lon_dim*dim_sim%lat_dim, &
+   & eigenvectors, pcs_sim)
+! weight with eigenvalues
+   DO it = 1,dim_sim%time_dim
+    pcs_sim(:,it) = pcs_sim(:,it)*eigenvalues
+   END DO
+   DO it = 1,dim_archi%time_dim
+    pcs_archi(:,it) = pcs_archi(:,it)*eigenvalues
+   END DO
+!CALL DATE_AND_TIME(clockdate, clocktime)
+!PRINT*, clockdate, ' ', clocktime
+!PRINT*, 'pcs_sim', pcs_sim(:,1)
+! compute analogues
+   dim_pcsim%lon_dim = dim_sim%lon_dim*dim_sim%lat_dim
+   dim_pcsim%lat_dim = 1
+   dim_pcsim%time_dim = dim_sim%time_dim
+   dim_pcarchi%lon_dim = dim_archi%lon_dim*dim_archi%lat_dim
+   dim_pcarchi%lat_dim = 1
+   dim_pcarchi%time_dim = dim_archi%time_dim
+  IF (calccor) THEN
+   CALL compute_analogues(dates_sim, dates_archi, pcs_sim, pcs_archi, dim_pcarchi, &
+    & dim_pcsim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+    & ranks_archi, ranks_sim, spatial_corr)
+  ELSE 
+   CALL compute_analogues(dates_sim, dates_archi, pcs_sim, pcs_archi, dim_pcarchi,  &
+    & dim_pcsim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+  END IF
+ CASE("of","opticalflow")
+  IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, of, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, of, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+   END IF
+ CASE DEFAULT
+   PRINT*, 'No valid distance function found. Please choose one of "rms", "rmse", "euclidean", &
+    & "cosine", "cos", "mahalanobis", "of", "optical flow".'
+   PRINT*, 'Program stops.'
+   STOP 
+END SELECT
+! PRINT*, analogue_dates(:,1), distances(:,1), spatial_corr(:,1)
+END SUBROUTINE mainsub
+
+!**********************************************
 
 !> removing smoothed seasonal cycle -> calculate anomalies
 !! smoothing is done with weighted moving average.
@@ -90,7 +285,7 @@ var_cyc = get_data(TRIM(filename), varname, dim_cyc)
 !PRINT*, 'smooth'
 !PRINT*, clockdate, ' ', clocktime
 ! get cycle dates
-dates_cyc = get_dates(TRIM(filename), dim_cyc%time_dim, "cyc_dates.txt")
+dates_cyc = get_dates(TRIM(filename), dim_cyc%time_dim, "cyc_dates.txt", dim_cyc%ncstart(3))
  moddate = MOD(raw_dates, 10000)
  moddate_cyc = MOD(dates_cyc, 10000)
  

@@ -46,13 +46,13 @@ distance.o: distance.f90
 distance.mod: distance.o
 	@true
 
-routines.o: routines.f90 read.mod distance.mod
+routines.o: routines.f90 read.mod distance.mod eofs.mod
 	$(COMPILE) routines.f90 -I$(INCLUDEPATH)
 routines.mod: routines.o
 	@true
 
 # analogues	
-$(prog.o): write.mod routines.mod eofs.mod $(prog.f90)
+$(prog.o): write.mod routines.mod  $(prog.f90)
 	$(COMPILE) $(prog.f90) -I$(INCLUDEPATH)
 
 $(PROGRAM): $(prog.o) config.o read.o write.o distance.o routines.o eofs.o
