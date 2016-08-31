@@ -127,7 +127,7 @@ CALL SYSTEM(command) ! there is a risk that this does not work with every compil
 PRINT*, 'nc_start= ', ncstart
 OPEN(15,FILE=outfilename)
 IF (ncstart > 1) THEN
- DO i=1,ncstart-1
+ DO i=1,ncstart ! the empty read counts the empty line as one read, while a read into a variable ignores the first empty line
   READ(15,*)
  END DO 
 END IF

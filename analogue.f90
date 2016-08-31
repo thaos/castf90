@@ -31,14 +31,12 @@ TYPE (config_type) :: configs
 TYPE (dims_type) :: dim_archi
 TYPE (dims_type) :: dim_archi_tmp
 TYPE (dims_type) :: dim_sim
+TYPE (dims_type) :: dim_sim_tmp
 CHARACTER(8) :: clockdate
 CHARACTER(10) :: clocktime
 INTEGER, ALLOCATABLE :: analogue_dates(:,:)
 REAL(8), ALLOCATABLE :: distances(:,:)
 REAL, ALLOCATABLE :: spatial_corr(:,:)
-INTEGER, ALLOCATABLE :: analogue_dates_tmp(:,:)
-REAL(8), ALLOCATABLE :: distances_tmp(:,:)
-REAL, ALLOCATABLE :: spatial_corr_tmp(:,:)
 INTEGER, ALLOCATABLE :: dates_sim(:)
 CHARACTER(4000) :: headerline
 CHARACTER(50) :: formatstring
@@ -50,14 +48,20 @@ CHARACTER(50) :: configfilename
 INTEGER :: maxit
 INTEGER :: mem
 INTEGER :: archimem
+INTEGER :: simmem
 INTEGER :: maxchunk
-INTEGER :: numberofchunks
+INTEGER :: numberofachunks
+INTEGER :: numberofschunks
 INTEGER :: ichunk
+INTEGER :: schunk
 INTEGER :: tstart
 INTEGER, ALLOCATABLE :: index_vec(:)
 INTEGER, ALLOCATABLE :: sorted_ind(:)
 INTEGER :: anastart
 INTEGER :: anaend
+INTEGER :: timestart
+INTEGER :: timeend
+INTEGER :: splitfactor
 
 CALL DATE_AND_TIME(clockdate, clocktime)
 PRINT*, clockdate, ' ', clocktime
@@ -82,30 +86,41 @@ READ(24,*) mem
 PRINT*, mem
 ! get dimensions of the input data files
 dim_archi = get_dims(TRIM(configs%files%archivefile))
+print*, dim_archi
 dim_sim = get_dims(TRIM(configs%files%simulationfile))
-!print*, dim_archi
-!print*, dim_sim
+print*, dim_sim
 IF (.NOT. configs%param%silent) PRINT*, "got dimensions"
 ! calculate memory needed to read the archive file (in kB, because memory in meminfo is given in kB)
 archimem = dim_archi%lon_dim * dim_archi%lat_dim * dim_archi%time_dim * 0.008 
-IF (archimem > mem/4. ) THEN
- PRINT*, 'big data ', archimem, mem
-  maxchunk = mem/4 *125/dim_archi%lon_dim/dim_archi%lat_dim
- numberofchunks = CEILING(dim_archi%time_dim/REAL(maxchunk))
- PRINT*, 'maxchunk= ', maxchunk, 'numberofchunks= ', numberofchunks
+simmem = dim_sim%lon_dim * dim_sim%lat_dim * dim_sim%time_dim * 0.008 
+IF (mem < 12000000) THEN
+ splitfactor=4
+ELSE IF (mem < 36000000) THEN
+ splitfactor=8
+ELSE 
+ splitfactor = 24
+END IF
+IF (archimem+simmem > mem/REAL(splitfactor) ) THEN
+ PRINT*, 'big archive and/or simulation'
+ PRINT*, 'archive memory= ', archimem, 'simumlation memory= ', simmem, 'system memory= ', mem
+ maxchunk = mem/(2*splitfactor) *125/dim_archi%lon_dim/dim_archi%lat_dim ! 125 8byte values can be stored per kb
+ numberofachunks = CEILING(dim_archi%time_dim/REAL(maxchunk))
+ numberofschunks = CEILING(dim_sim%time_dim/REAL(maxchunk))
+ PRINT*, 'maxchunk= ', maxchunk, 'numberofachunks= ', numberofachunks, 'numberofschunks= ' , numberofschunks
 ELSE
- numberofchunks = 1
+ numberofachunks = 1
+ numberofschunks = 1
 END IF
 
-
-
-IF (numberofchunks == 1) THEN
- PRINT*, 'one chunk' 
-  IF (configs%param%calccor) THEN
+ IF (configs%param%calccor) THEN
     ALLOCATE(headerpieces(3*configs%param%nanalog))
-   ELSE
+ ELSE
     ALLOCATE(headerpieces(2*configs%param%nanalog))
-   END IF
+ END IF
+
+IF (numberofachunks == 1 .AND. numberofschunks == 1) THEN
+ PRINT*, 'one chunk' 
+ 
  ALLOCATE(analogue_dates(configs%param%nanalog, dim_sim%time_dim), &
    & distances(configs%param%nanalog, dim_sim%time_dim), &
    & spatial_corr(configs%param%nanalog, dim_sim%time_dim), dates_sim(dim_sim%time_dim))
@@ -118,46 +133,65 @@ IF (numberofchunks == 1) THEN
   & configs%param%calccor, configs%param%distfun, configs%param%seasonwin, &
   & configs%param%timewin, dates_sim)
 ELSE ! if the calculation has to be done in chunks
- ALLOCATE(analogue_dates(configs%param%nanalog*numberofchunks, dim_sim%time_dim), &
-   & distances(configs%param%nanalog*numberofchunks, dim_sim%time_dim), &
-   & spatial_corr(configs%param%nanalog*numberofchunks, dim_sim%time_dim), &
-   & index_vec(configs%param%nanalog*numberofchunks), dates_sim(dim_sim%time_dim), &
+ ALLOCATE(analogue_dates(configs%param%nanalog*numberofachunks, dim_sim%time_dim), &
+   & distances(configs%param%nanalog*numberofachunks, dim_sim%time_dim), &
+   & spatial_corr(configs%param%nanalog*numberofachunks, dim_sim%time_dim), &
+   & index_vec(configs%param%nanalog*numberofachunks), dates_sim(dim_sim%time_dim), &
    & sorted_ind(configs%param%nanalog))
  dim_archi_tmp = dim_archi
- DO ichunk = 1, numberofchunks
-! prepare the archive start and count numbers
-  IF (ichunk == numberofchunks) THEN
-   dim_archi_tmp%time_dim = dim_archi%time_dim - (numberofchunks-1)*maxchunk
+ dim_sim_tmp = dim_sim
+ DO schunk =1, numberofschunks ! simulation chunk loop
+!  prepare the simulation start and count numbers
+  IF (schunk == numberofschunks) THEN
+    dim_sim_tmp%time_dim = dim_sim%time_dim - (numberofschunks-1)*maxchunk
   ELSE
-   dim_archi_tmp%time_dim = maxchunk
+    dim_sim_tmp%time_dim = maxchunk
   END IF
-  tstart = (ichunk-1)*maxchunk + 1
+  tstart = (schunk-1)*maxchunk + 1
+  dim_sim_tmp%ncstart = (/1,1, tstart/)
+  dim_sim_tmp%nccount = (/dim_sim_tmp%lon_dim, dim_sim_tmp%lat_dim, dim_sim_tmp%time_dim/)
+  timestart = tstart
+  timeend = tstart+dim_sim_tmp%time_dim-1
+  PRINT*, dim_sim
+  PRINT*, dim_sim_tmp
+  PRINT*, timestart, timeend
+  !STOP
+  DO ichunk = 1, numberofachunks ! archive chunk loop
+! prepare the archive start and count numbers
+   IF (ichunk == numberofachunks) THEN
+    dim_archi_tmp%time_dim = dim_archi%time_dim - (numberofachunks-1)*maxchunk
+   ELSE
+    dim_archi_tmp%time_dim = maxchunk
+   END IF
+   tstart = (ichunk-1)*maxchunk + 1
   !PRINT*, 'tstart = ', tstart
-  dim_archi_tmp%ncstart = (/1,1, tstart/)
-  dim_archi_tmp%nccount = (/dim_archi_tmp%lon_dim, dim_archi_tmp%lat_dim, dim_archi_tmp%time_dim/)
-  anastart = (ichunk-1)*configs%param%nanalog +1
-  anaend = ichunk*configs%param%nanalog
+   dim_archi_tmp%ncstart = (/1,1, tstart/)
+   dim_archi_tmp%nccount = (/dim_archi_tmp%lon_dim, dim_archi_tmp%lat_dim, dim_archi_tmp%time_dim/)
+   anastart = (ichunk-1)*configs%param%nanalog +1
+   anaend = ichunk*configs%param%nanalog
 ! calculate analogues in different archive sections and put them to different array sections
-  CALL mainsub(dim_archi_tmp, dim_sim, configs%param%nanalog, analogue_dates(anastart:anaend,:), &
-   & distances(anastart:anaend,:), spatial_corr(anastart:anaend,:), &
-   & configs%param%silent, configs%param%varname, &
-   & configs%files%archivefile, configs%files%simulationfile, &
-   & configs%param%seacyc, configs%files%seacycfilebase, &
-   & configs%files%seacycfilesim, configs%param%cycsmooth, &
-   & configs%param%calccor, configs%param%distfun, configs%param%seasonwin, &
-   & configs%param%timewin, dates_sim)
- PRINT*, 'end mainsub'
+   CALL mainsub(dim_archi_tmp, dim_sim_tmp, configs%param%nanalog, &
+    & analogue_dates(anastart:anaend,timestart:timeend), &
+    & distances(anastart:anaend,timestart:timeend), spatial_corr(anastart:anaend,timestart:timeend), &
+    & configs%param%silent, configs%param%varname, &
+    & configs%files%archivefile, configs%files%simulationfile, &
+    & configs%param%seacyc, configs%files%seacycfilebase, &
+    & configs%files%seacycfilesim, configs%param%cycsmooth, &
+    & configs%param%calccor, configs%param%distfun, configs%param%seasonwin, &
+    & configs%param%timewin, dates_sim(timestart:timeend))
+  PRINT*, 'end mainsub', ichunk
+  END DO
  END DO
  ! do final sorting
- index_vec = (/ (ia, ia=1, configs%param%nanalog*numberofchunks) /)
+ index_vec = (/ (ia, ia=1, configs%param%nanalog*numberofachunks) /)
  DO it = 1, dim_sim%time_dim
   CALL sort_index(index_vec, distances(:,it), &
-   & configs%param%nanalog*numberofchunks, sorted_ind, &
-   & distances(1:configs%param%nanalog,it), configs%param%nanalog)
+    & configs%param%nanalog*numberofachunks, sorted_ind, &
+    & distances(1:configs%param%nanalog,it), configs%param%nanalog)
   analogue_dates(1:configs%param%nanalog,it) = analogue_dates(sorted_ind,it)
   spatial_corr(1:configs%param%nanalog,it) = spatial_corr(sorted_ind,it)
  END DO
-
+ PRINT*, 'end final sorting'
 END IF
 
 SELECT CASE (TRIM(configs%param%oformat))
@@ -178,13 +212,16 @@ SELECT CASE (TRIM(configs%param%oformat))
  CASE DEFAULT
  ! write output with correlations
   IF (configs%param%calccor) THEN
+!PRINT*, 'construct header'
  ! construct header
    DO ia=1,configs%param%nanalog
     IF (ia < 10 ) THEN
+!PRINT*,'ia= ', ia, configs%param%nanalog
      WRITE(headerpieces(ia), '(A, I1)') 'date.an', ia
      WRITE(headerpieces(ia+configs%param%nanalog), '(A, I1)') 'dis', ia
      WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I1)') 'cor', ia
     ELSE IF (ia < 100) THEN
+!PRINT*, 'ia= ', ia
      WRITE(headerpieces(ia), '(A, I2)') 'date.an', ia
      WRITE(headerpieces(ia+configs%param%nanalog), '(A, I2)') 'dis', ia
      WRITE(headerpieces(ia+2*configs%param%nanalog), '(A, I2)') 'cor', ia
@@ -198,9 +235,10 @@ SELECT CASE (TRIM(configs%param%oformat))
 ! WRITE(headerformat,'(A,I3.3,A)') '(',configs%param%nanalog*3 + 1,'A)'
 ! PRINT*, headerformat, size(headerpieces)
    WRITE(headerline,*) 'date ', headerpieces
-! PRINT*, 'headerline written' 
-   WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', configs%param%nanalog,'F17.3,',configs%param%nanalog,'F13.7 )'
-! PRINT*, formatstring
+ PRINT*, 'headerline written' 
+   WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', &
+    & configs%param%nanalog,'F17.3,',configs%param%nanalog,'F13.7 )'
+ PRINT*, formatstring
    OPEN(22,FILE=TRIM(configs%files%outputfile))
     WRITE(22,'(A)') TRIM(headerline)
   IF (.NOT. configs%param%silent)  PRINT*, 'header written'

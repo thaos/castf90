@@ -1,6 +1,6 @@
 #!/bin/sh
 #PBS -N circulation_analogues
-#PBS -q mediump
+#PBS -q longp
 #PBS -j eo
 #PBS -m e -M sabine.radanovics@lsce.ipsl.fr
 #PBS -l nodes=1:ppn=12
@@ -12,7 +12,7 @@ export OMP_NUM_THREADS=12
 
 cd /home/users/sradanov/Code/Analogue/RSdev
 
-./analogue.out config_20160811_161101.txt > logging_doubleif.txt
+./analogue.out config_plasimtest.txt > logging_plasim.txt
 
 #./run_analogs_slp.sh 
 #./run_analogs_case.sh -D-20.0,30.0,30.0,70.0 -S2013-12-01,2014-02-28 -B1984-01-01,2013-12-31 -w30 -dmahalanobis -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/
