@@ -4,7 +4,7 @@ LIBPATH = /usr/lib64
 LIBPATH2 = /home/users/sradanov/Code/Analogue/RSdev/lapack95/lib
 lib1 = -lnetcdff
 lib2 = -lmkl_lapack95 
-COMPILE = ifort -mkl -c -O2 -ipo -check all,noarg_temp_created -warn all -openmp 
+COMPILE = ifort -mkl -c -O2 -ipo -check all,noarg_temp_created -warn all -heap_arrays -openmp 
 #COMPILE = gfortran -c -fbacktrace -Warray-bounds -fopenmp -ffree-line-length-0 
 
 LINK = ifort -mkl -openmp -warn -o 
