@@ -79,6 +79,7 @@ configs = get_configuration(TRIM(configfilename))
 IF (.NOT. configs%param%silent) THEN
  PRINT*, "read config"
  PRINT*, TRIM(configs%files%outputfile)
+ PRINT*, TRIM(configs%files%archivefile)
 END IF
 ! get memory information
 CALL SYSTEM('grep MemTotal /proc/meminfo |cut -c11-25 > fort.24')
@@ -237,7 +238,7 @@ SELECT CASE (TRIM(configs%param%oformat))
    WRITE(headerline,*) 'date ', headerpieces
  PRINT*, 'headerline written' 
    WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', &
-    & configs%param%nanalog,'F17.3,',configs%param%nanalog,'F13.7 )'
+    & configs%param%nanalog,'F19.3,',configs%param%nanalog,'F13.7 )'
  PRINT*, formatstring
    OPEN(22,FILE=TRIM(configs%files%outputfile))
     WRITE(22,'(A)') TRIM(headerline)
@@ -266,7 +267,7 @@ SELECT CASE (TRIM(configs%param%oformat))
    END DO 
 ! write header
    WRITE(headerline,*) 'date ', headerpieces
-   WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', configs%param%nanalog,'F17.3 )'
+   WRITE(formatstring,'(A,3(I3.3,A))') '(I9,',configs%param%nanalog, 'I9,', configs%param%nanalog,'F19.3 )'
    OPEN(22,FILE=TRIM(configs%files%outputfile))
     WRITE(22,'(A)') headerline
 ! write data
