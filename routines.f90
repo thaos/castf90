@@ -533,7 +533,7 @@ INTEGER :: ia !, ila, ilo
 !CHARACTER(10) :: clocktime
 !REAL :: meansim
 !REAL :: meanarch
-
+!IF (maxval(ranks_archi) < dim_archi%lon_dim*dim_archi%lat_dim) PRINT*, 'maxrank ', maxval(ranks_archi)
 !meansim = SUM(ranks_sim)/REAL(dim_archi%lon_dim*dim_archi%lat_dim)
 
 !CALL DATE_AND_TIME(clockdate, clocktime)
@@ -541,7 +541,7 @@ INTEGER :: ia !, ila, ilo
 DO ia=1,nanalog
 ! calculate correlation
  get_spearman_cor(ia) = 1-((6.0*SUM((ranks_archi(:,:,ia)-ranks_sim)**2))/ &
-  &((dim_archi%lon_dim*dim_archi%lat_dim)**3-(dim_archi%lon_dim*dim_archi%lat_dim)))
+  &((dim_archi%lon_dim*dim_archi%lat_dim)**3.-(dim_archi%lon_dim*dim_archi%lat_dim)))
 ! meanarch = SUM(ranks_archi(:,:,ia))/REAL(dim_archi%lon_dim*dim_archi%lat_dim)
 ! get_spearman_cor(ia) = ()/()
 END DO
