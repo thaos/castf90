@@ -28,6 +28,9 @@ TYPE dims_type
  INTEGER :: lat_dim
  INTEGER :: lon_dim
  INTEGER :: time_dim
+ CHARACTER(20) :: calendar
+ INTEGER :: ncstart(3)
+ INTEGER :: nccount(3)
 END TYPE dims_type
 
 CONTAINS
@@ -43,10 +46,13 @@ INTEGER :: nDimensions
 CHARACTER*80, ALLOCATABLE :: dimname(:)
 INTEGER, ALLOCATABLE :: dimlen(:)
 INTEGER :: dimid
+INTEGER :: varid
 
 get_dims%lon_dim = -999
 get_dims%lat_dim = -999
 get_dims%time_dim = -999
+get_dims%calendar = "standard"
+get_dims%ncstart = (/1,1,1/)
 
 !PRINT*, "dims init done"
 state = nf90_open(trim(filename),nf90_nowrite,fileid)
@@ -63,6 +69,10 @@ DO dimid = 1, nDimensions
     get_dims%time_dim = dimlen(dimid)
   END IF
 END DO
+! get calendar attribute from time variable
+CALL check(NF90_INQ_VARID(fileid, 'time', varid),fileid)
+CALL check(NF90_GET_ATT(fileid, varid, 'calendar', get_dims%calendar),fileid)
+get_dims%nccount = (/get_dims%lon_dim, get_dims%lat_dim, get_dims%time_dim/)
 
 IF (get_dims%lon_dim <= 0 .OR. get_dims%lat_dim <= 0 .OR. get_dims%time_dim <= 0) THEN
   PRINT*, 'no time, lon or lat dimension found in netcdf file ', TRIM(filename),': program stops'
@@ -89,7 +99,7 @@ INTEGER :: varid
 
 state = nf90_open(trim(filename),nf90_nowrite,fileid)
 CALL check(NF90_INQ_VARID(fileid, varname, varid ), fileid )
-CALL check(NF90_GET_VAR(fileid, varid, get_data), fileid)
+CALL check(NF90_GET_VAR(fileid, varid, get_data, start=dims%ncstart, count=dims%nccount), fileid)
 state = NF90_CLOSE(fileid) 
 END FUNCTION get_data
 
@@ -97,14 +107,16 @@ END FUNCTION get_data
 
 !> write the dates in a netcdf file to a textfile using the cdo command showdate,
 !! that is called using the fortran extension command SYSTEM()
-FUNCTION get_dates(filename, length, outfilename)
+FUNCTION get_dates(filename, length, outfilename, ncstart)
 IMPLICIT NONE
 CHARACTER(*), INTENT(IN) :: filename
 INTEGER, INTENT(IN) :: length
 INTEGER :: get_dates(length)
 CHARACTER(*), INTENT(IN) :: outfilename
+INTEGER, INTENT(IN) :: ncstart
 
 CHARACTER(300) :: command
+INTEGER :: i
 
 ! write files with dates
 WRITE(command, '(6A)') "cdo -s showdate ", filename, &
@@ -112,10 +124,16 @@ WRITE(command, '(6A)') "cdo -s showdate ", filename, &
 !PRINT*, command
 CALL SYSTEM(command) ! there is a risk that this does not work with every compiler !!!
 ! read the dates back to the variable.
+PRINT*, 'nc_start= ', ncstart
 OPEN(15,FILE=outfilename)
-READ(15,*) get_dates
+IF (ncstart > 1) THEN
+ DO i=1,ncstart ! the empty read counts the empty line as one read, while a read into a variable ignores the first empty line
+  READ(15,*)
+ END DO 
+END IF
+READ(15, *) get_dates
 CLOSE(15)
-
+PRINT*, get_dates(1)
 END FUNCTION get_dates
 
 !*******************************

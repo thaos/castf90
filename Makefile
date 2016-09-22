@@ -4,7 +4,7 @@ LIBPATH = /usr/lib64
 LIBPATH2 = /home/users/sradanov/Code/Analogue/RSdev/lapack95/lib
 lib1 = -lnetcdff
 lib2 = -lmkl_lapack95 
-COMPILE = ifort -mkl -c -O2 -ipo -check all,noarg_temp_created -warn all -openmp 
+COMPILE = ifort -mkl -c -O2 -ipo -check all,noarg_temp_created -warn all -heap_arrays -openmp 
 #COMPILE = gfortran -c -fbacktrace -Warray-bounds -fopenmp -ffree-line-length-0 
 
 LINK = ifort -mkl -openmp -warn -o 
@@ -43,13 +43,13 @@ distance.o: distance.f90
 distance.mod: distance.o
 	@true
 
-routines.o: routines.f90 read.mod distance.mod
+routines.o: routines.f90 read.mod distance.mod eofs.mod
 	$(COMPILE) routines.f90 -I$(INCLUDEPATH)
 routines.mod: routines.o
 	@true
 
 # analogues	
-$(prog.o): write.mod routines.mod eofs.mod $(prog.f90)
+$(prog.o): write.mod routines.mod $(prog.f90)
 	$(COMPILE) $(prog.f90) -I$(INCLUDEPATH)
 
 $(PROGRAM): $(prog.o) config.o read.o write.o distance.o routines.o eofs.o

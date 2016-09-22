@@ -136,8 +136,7 @@ cd $sourcedir
 # write simulation filename to configuration file
 cat <<EOF >> config_${date_stamp}.txt
  my_files%simulationfile = "${simdir}sim_${varname}_${dtrstr}${region}_${datestring2}_${namestring}.nc"
- my_files%outputfile ="${outdir}ana_${varname}_${level}_${dtrstr}${distancefun}_${region}_sim_${datestring2}_base_${datestring1}_${namestring}_${lwin}_${seasonwin}_${nanalog}${format}"
-/
+ my_files%outputfile ="${outdir}ana_${varname}_${level}_${dtrstr}${seasycnorm}_${distancefun}_${region}_sim_${datestring2}_base_${datestring1}_${namestring}_${lwin}_${seasonwin}_${nanalog}${format}"
 EOF
 date=`date +"%d/%m/%Y (%H:%M:%S)"`
 if [ ${silent} != "ilent" ]; then echo -e "\n files read: ${date}\n" ; fi
@@ -162,10 +161,16 @@ case $seacycnorm in
  own)  cdo -s ydaymean ${basedir}base_${varname}_${dtrstr}${region}_${datestring1}_${namestring}.nc seasoncyc_base.nc
        cdo -s ydaymean ${simdir}sim_${varname}_${dtrstr}${region}_${datestring2}_${namestring}.nc seasoncyc_sim.nc ;;
  none) echo "analogues calculated from raw data, no anomalies" ;;
+ basesp) cdo -s ydaymean -fldmean ${basedir}base_${varname}_${dtrstr}${region}_${datestring1}_${namestring}.nc seasoncyc_base.nc
+         cp seasoncyc_base.nc seasoncyc_sim.nc ;;
  *)    echo -e "Invalid value for anomalie option -N, \nplease choose one of base, sim, own or none" 
        exit 1 ;;
 esac
-
+cat <<EOF >> config_${date_stamp}.txt
+ my_files%seacycfilebase = "seasoncyc_base.nc"
+ my_files%seacycfilesim = "seasoncyc_sim.nc"
+/
+EOF
 
 date=`date +"%d/%m/%Y (%H:%M:%S)"`
 if [ ${silent} != "ilent" ]; then echo -e "\n seasonal cycle calculated: ${date}\n" ; fi

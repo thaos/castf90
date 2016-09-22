@@ -392,12 +392,14 @@ run\_analogs\_case.sh accepts a number of options:
 If the run\_analogs\_case.sh script is submitted to a batch system (qsub command), the options are interpreted as options for the qsub command rather than as options for the run\_analogs\_case.sh script. A workaround is to run run\_analogs\_case.sh inside an other script which is then submitted to the batch system. \textit{pbsscript} is an example for such a script.
 
 \subsection{Run calculation only (you already have the data files and a corresponding configuration file)}
-Suppose you have already constructed your input data files, you can run the fortran program without the shell scripts if you provide a configuration file (textfile in fortran namelist form) like this:
+Suppose you have already constructed your input data files (and seasonal cycle files if needed), you can run the fortran program without the shell scripts if you provide a configuration file (textfile in fortran namelist form) like this:
 \begin{verbatim}
 &FILES
  my_files%archivefile = "/../../base_slp_NA_1985-01-01_2012-12-31_-80.0_50.0_22.5_70.0.nc"
  my_files%simulationfile = "/../../sim_slp_NA_1985-01-01_2012-12-31_-80.0_50.0_22.5_70.0.nc"
  my_files%outputfile ="/../../ana_slp_surface_rms_NA_sim_1985-01-01_2012-12-31_base_1985-01-01_2012-12-31_-80.0_50.0_22.5_70.0_1_30.txt"
+ my_files%seacycfilebase = "/../../seasoncyc_base.nc"
+ my_files%seacycfilesim = "/../../seasoncyc_sim.nc"
 /
 &PARAM
  my_params%timewin = 1
@@ -418,7 +420,7 @@ Suppose you have already constructed your input data files, you can run the fort
  my_atts%predictordom = "-80.0,50.0,22.5,70.0"
 /
 \end{verbatim}
-There are three groups: \textit{\&FILES}, \textit{\&PARAMS} and \textit{\&ATTS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file and the output file respectively. These are character chain type variables and thus the values need to be in double quotes.
+There are three groups: \textit{\&FILES}, \textit{\&PARAMS} and \textit{\&ATTS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file, the output file and the files containing the seasonal cycle to be removed from the archive and the  simulation respectively. These are character chain type variables and thus the values need to be in double quotes. The variables have to be present even if no seasonal cycle should be removed - the values are ignored in this case though.
 
 In the \textit{\&PARAMS} group:
 \begin{itemize}

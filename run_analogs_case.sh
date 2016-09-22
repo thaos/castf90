@@ -61,7 +61,7 @@ silent=bla
 format=.txt
 
 #please set this line to the directory containing the source.
-sourcedir=${HOME}/Code/Analogue/RSdev
+sourcedir=/home/users/sradanov/Code/Analogue/RSdev
 
 # processing arguments
 while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:f:h:' opt ; do
@@ -102,12 +102,13 @@ while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:f:h:' opt ; do
    echo "     sim to remove cycle of the simulation data set from all data sets (caution : make sure that the simulation is sufficiently long for meaningful cycle calculation)" ;
    echo "     own to remove its own cycle from each of the data sets" ;
    echo "     none to use raw data" ;
+   echo "     basesp to remove the spatial mean (not pointwise) cycle of the data base/archive from all data sets" ;
    echo "     (default: $seacycnorm)" ;
    echo "  -m<numberofdays> (number of days to calculate weighted moving average for seasonal cycle smoothing" ;
    echo "  -c<logical> TRUE if correlation should be calculated as an additional diagnostic, FALSE if not (def: TRUE)" ;
    echo "  -w<numberofdays> (number of days +- around the target day to consider as candidates. def: $seaonwin)" ;
    echo "  -d<distance> name of the distance to use for analogue calculation (def: $distancefun)" ;
-   echo "     rms, cosine, mahalanobis or of" ;
+   echo "     rms, cosine, S1 (Teweles and Wobus score), mahalanobis or of" ;
    echo "  -n<numberofanalogues> Number of closest analogue dates to write to output (def: $nanalog)" ;
    echo "  -v<varname> name of the NCEP field to download" ;
    echo "     The name has to be the same as in the filename in the NCEP database (def:$varname)" ;

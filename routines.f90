@@ -25,6 +25,7 @@ MODULE routines
 
 USE read_files
 USE distance
+USE eofs
 USE omp_lib
 
 TYPE civildate_type
@@ -36,6 +37,200 @@ END TYPE civildate_type
 
 
 CONTAINS
+
+!> Handles the workflow: get data and do calculation. 
+SUBROUTINE mainsub(dim_archi, dim_sim, nanalog, analogue_dates, distances, &
+ & spatial_corr, silent, varname, archivefile, simulationfile, seacyc, &
+ & seacycfilebase, seacycfilesim, cycsmooth, calccor, distfun, seasonwin, &
+ & timewin, dates_sim)
+IMPLICIT NONE
+TYPE (dims_type), INTENT(IN) :: dim_archi
+TYPE (dims_type), INTENT(IN) :: dim_sim
+INTEGER, INTENT(IN) :: nanalog
+INTEGER, INTENT(OUT) :: analogue_dates(nanalog,dim_sim%time_dim)
+REAL(8), INTENT(OUT) :: distances(nanalog,dim_sim%time_dim)
+REAL, INTENT(OUT) :: spatial_corr(nanalog,dim_sim%time_dim)
+LOGICAL, INTENT(IN) :: silent
+CHARACTER(*), INTENT(IN) :: varname
+CHARACTER(*), INTENT(IN) :: archivefile
+CHARACTER(*), INTENT(IN) :: simulationfile
+LOGICAL, INTENT(IN) :: seacyc
+CHARACTER(*), INTENT(IN) :: seacycfilebase
+CHARACTER(*), INTENT(IN) :: seacycfilesim
+INTEGER, INTENT(IN) :: cycsmooth
+LOGICAL, INTENT(IN) :: calccor
+CHARACTER(*), INTENT(IN) :: distfun
+INTEGER, INTENT(IN) :: seasonwin
+INTEGER, INTENT(IN) :: timewin
+INTEGER, INTENT(OUT) :: dates_sim(dim_sim%time_dim)
+
+REAL(8), ALLOCATABLE :: var_archi(:,:,:)
+REAL(8), ALLOCATABLE :: var_sim(:,:,:)
+INTEGER, ALLOCATABLE :: dates_archi(:)
+INTEGER, ALLOCATABLE :: ranks_archi(:,:,:)
+INTEGER, ALLOCATABLE :: ranks_sim(:,:,:)
+CHARACTER(8) :: clockdate
+CHARACTER(10) :: clocktime
+REAL(8), ALLOCATABLE :: eigenvalues(:), eigenvectors(:,:)
+REAL(8), ALLOCATABLE :: variance(:), cumvariance(:), sqrootweights(:)
+REAL(8), ALLOCATABLE :: pcs_archi(:,:), pcs_sim(:,:)
+TYPE (dims_type) :: dim_pcsim
+TYPE (dims_type) :: dim_pcarchi
+INTEGER :: it
+
+! verify that lat and lon dimensions are equally long in archive and simulation file
+ IF (dim_archi%lon_dim == dim_sim%lon_dim .AND. dim_archi%lat_dim == dim_sim%lat_dim) THEN 
+! allocate data arrays
+  ALLOCATE(var_archi(dim_archi%lon_dim, dim_archi%lat_dim, dim_archi%time_dim), &
+   & var_sim(dim_sim%lon_dim, dim_sim%lat_dim, dim_sim%time_dim), &
+   & dates_archi(dim_archi%time_dim), &
+   & ranks_archi(dim_archi%lon_dim, dim_archi%lat_dim, dim_archi%time_dim), &
+   & ranks_sim(dim_sim%lon_dim, dim_sim%lat_dim, dim_sim%time_dim) )
+   
+!PRINT*, "allocated variables"
+ ELSE
+  PRINT*, 'analogue error: lat or lon dimesions differ in archive and simulation file.' 
+  PRINT*, 'Program stops'
+  STOP
+ END IF
+
+! read input files
+ CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*,'read input ', clockdate, ' ', clocktime
+ var_archi = get_data(TRIM(archivefile), TRIM(varname), dim_archi)
+ var_sim = get_data(TRIM(simulationfile), TRIM(varname), dim_sim)
+ IF (.NOT. silent) PRINT*, "got data"
+ dates_archi = get_dates(TRIM(archivefile), dim_archi%time_dim, "base_dates.txt", dim_archi%ncstart(3))
+ dates_sim = get_dates(TRIM(simulationfile), dim_sim%time_dim, "sim_dates.txt", dim_sim%ncstart(3))
+ IF (.NOT. silent) PRINT*, "got dates" 
+
+! remove seasonal cycle, that is calculate anomalies
+ IF (seacyc) THEN
+  CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*,'rm seasonal cycle', clockdate, ' ', clocktime
+  var_archi = rm_cyc(TRIM(seacycfilebase), var_archi, dates_archi, dim_archi%lon_dim, &
+   & dim_archi%lat_dim, dim_archi%time_dim, TRIM(varname), cycsmooth)
+  var_sim = rm_cyc(TRIM(seacycfilesim), var_sim, dates_sim, dim_sim%lon_dim, &
+   & dim_sim%lat_dim, dim_sim%time_dim, TRIM(varname), cycsmooth)
+ END IF
+! precalculate ranks for later rank correlation calculation
+ IF (calccor) THEN
+  CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*,'get ranks ', clockdate, ' ', clocktime
+  ranks_archi = get_ranks(dim_archi,var_archi)
+  ranks_sim = get_ranks(dim_sim, var_sim)
+  CALL DATE_AND_TIME(clockdate, clocktime)
+ IF (.NOT. silent) PRINT*, 'get ranks done ', clockdate, ' ', clocktime
+ END IF
+
+ IF (.NOT. silent) PRINT*, distfun
+! select distance to calculate
+SELECT CASE (TRIM(distfun))
+ CASE("rms", "rmse","euclidean")
+   ! compute analogues 
+   IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+    END IF
+ CASE("cosine", "cos")
+  ! compute analogues 
+   IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, cosdist, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, cosdist, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+    END IF
+ CASE("s1","S1","TWS","tws")
+  ! compute analogues 
+   IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, S1, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, S1, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+    END IF
+ CASE("mahalanobis")
+! allocate additional variables needed in case of mahalanobis distance
+  ALLOCATE(eigenvalues(dim_archi%lon_dim*dim_archi%lat_dim), &
+   & eigenvectors(dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%lon_dim*dim_archi%lat_dim), &
+   & variance(dim_archi%lon_dim*dim_archi%lat_dim), cumvariance(dim_archi%lon_dim*dim_archi%lat_dim), &
+   & sqrootweights(dim_archi%lon_dim*dim_archi%lat_dim), &
+   & pcs_archi(dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%time_dim), &
+   & pcs_sim(dim_sim%lon_dim*dim_sim%lat_dim, dim_sim%time_dim))
+   sqrootweights = 1
+! calculate EOFs of archive
+!CALL DATE_AND_TIME(clockdate, clocktime)
+!PRINT*, clockdate, ' ', clocktime
+IF (.NOT. silent) PRINT*, 'calculate EOFs'
+  CALL deof( RESHAPE(var_archi,(/dim_archi%lon_dim*dim_archi%lat_dim,dim_archi%time_dim/)), &
+   & dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%time_dim, &
+   & dim_archi%lon_dim*dim_archi%lat_dim,0 , &
+     & eigenvalues, eigenvectors, variance, cumvariance, &
+     & sqrootweights )
+! PRINT*, 'first eigenvector', eigenvectors(:,1)
+IF (.NOT. silent) THEN 
+ CALL DATE_AND_TIME(clockdate, clocktime)
+ PRINT*, clockdate, ' ', clocktime
+ PRINT*, 'project'
+END IF
+! project archive and simulations of EOFs
+  call deofpcs( RESHAPE(var_archi,(/dim_archi%lon_dim*dim_archi%lat_dim,dim_archi%time_dim/)), &
+   & dim_archi%lon_dim*dim_archi%lat_dim, dim_archi%time_dim, dim_archi%lon_dim*dim_archi%lat_dim, &
+   & eigenvectors, pcs_archi)
+  call deofpcs( RESHAPE(var_sim,(/dim_sim%lon_dim*dim_sim%lat_dim,dim_sim%time_dim/)), &
+   & dim_sim%lon_dim*dim_sim%lat_dim, dim_sim%time_dim, dim_sim%lon_dim*dim_sim%lat_dim, &
+   & eigenvectors, pcs_sim)
+! weight with eigenvalues
+   DO it = 1,dim_sim%time_dim
+    pcs_sim(:,it) = pcs_sim(:,it)*eigenvalues
+   END DO
+   DO it = 1,dim_archi%time_dim
+    pcs_archi(:,it) = pcs_archi(:,it)*eigenvalues
+   END DO
+!CALL DATE_AND_TIME(clockdate, clocktime)
+!PRINT*, clockdate, ' ', clocktime
+!PRINT*, 'pcs_sim', pcs_sim(:,1)
+! compute analogues
+   dim_pcsim%lon_dim = dim_sim%lon_dim*dim_sim%lat_dim
+   dim_pcsim%lat_dim = 1
+   dim_pcsim%time_dim = dim_sim%time_dim
+   dim_pcarchi%lon_dim = dim_archi%lon_dim*dim_archi%lat_dim
+   dim_pcarchi%lat_dim = 1
+   dim_pcarchi%time_dim = dim_archi%time_dim
+  IF (calccor) THEN
+   CALL compute_analogues(dates_sim, dates_archi, pcs_sim, pcs_archi, dim_pcarchi, &
+    & dim_pcsim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+    & ranks_archi, ranks_sim, spatial_corr)
+  ELSE 
+   CALL compute_analogues(dates_sim, dates_archi, pcs_sim, pcs_archi, dim_pcarchi,  &
+    & dim_pcsim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+  END IF
+ CASE("of","opticalflow")
+  IF (calccor) THEN
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, of, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
+     & ranks_archi, ranks_sim, spatial_corr)
+   ELSE 
+    CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
+     & dim_sim, of, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+   END IF
+ CASE DEFAULT
+   PRINT*, 'No valid distance function found. Please choose one of "rms", "rmse", "euclidean", &
+    & "cosine", "cos", "mahalanobis", "of", "optical flow".'
+   PRINT*, 'Program stops.'
+   STOP 
+END SELECT
+! PRINT*, analogue_dates(:,1), distances(:,1), spatial_corr(:,1)
+END SUBROUTINE mainsub
+
+!**********************************************
 
 !> removing smoothed seasonal cycle -> calculate anomalies
 !! smoothing is done with weighted moving average.
@@ -73,7 +268,13 @@ IF (lon_dim == dim_cyc%lon_dim .AND. lat_dim == dim_cyc%lat_dim) THEN
   & dates_cyc(dim_cyc%time_dim), moddate_cyc(dim_cyc%time_dim), &
   & test_cyc(dim_cyc%lon_dim, dim_cyc%lat_dim, dim_cyc%time_dim), &
   & test_count(dim_cyc%time_dim))
-ELSE
+ELSE IF (dim_cyc%lon_dim == 1 .AND. dim_cyc%lat_dim == 1) THEN
+! PRINT*, dim_cyc
+ ALLOCATE(var_cyc(dim_cyc%lon_dim, dim_cyc%lat_dim, dim_cyc%time_dim), &
+  & dates_cyc(dim_cyc%time_dim), moddate_cyc(dim_cyc%time_dim), &
+  & test_cyc(dim_cyc%lon_dim, dim_cyc%lat_dim, dim_cyc%time_dim), &
+  & test_count(dim_cyc%time_dim))
+ELSE 
  PRINT*, 'analogue error: lat or lon dimesions differ in data and seasonal cycle file.' 
  PRINT*, 'Program stops'
  STOP
@@ -84,7 +285,7 @@ var_cyc = get_data(TRIM(filename), varname, dim_cyc)
 !PRINT*, 'smooth'
 !PRINT*, clockdate, ' ', clocktime
 ! get cycle dates
-dates_cyc = get_dates(TRIM(filename), dim_cyc%time_dim, "cyc_dates.txt")
+dates_cyc = get_dates(TRIM(filename), dim_cyc%time_dim, "cyc_dates.txt", dim_cyc%ncstart(3))
  moddate = MOD(raw_dates, 10000)
  moddate_cyc = MOD(dates_cyc, 10000)
  
@@ -99,16 +300,29 @@ CLOSE(9)
 ! actually remove cycle
 t=1
 tt=1
-DO WHILE (t <= time_dim)
- IF (moddate(t) == moddate_cyc(tt)) THEN
-  rm_cyc(:,:,t) = raw_data(:,:,t)-var_cyc(:,:,tt)
-  t=t+1
- ELSE IF (tt < dim_cyc%time_dim) THEN
-  tt=tt+1
- ELSE
-  tt=1
- END IF 
-END DO
+IF (dim_cyc%lon_dim == 1 .AND. dim_cyc%lat_dim == 1) THEN
+ DO WHILE (t <= time_dim)
+  IF (moddate(t) == moddate_cyc(tt)) THEN
+   rm_cyc(:,:,t) = raw_data(:,:,t)-var_cyc(1,1,tt)
+   t=t+1
+  ELSE IF (tt < dim_cyc%time_dim) THEN
+   tt=tt+1
+  ELSE
+   tt=1
+  END IF 
+ END DO
+ELSE
+ DO WHILE (t <= time_dim)
+  IF (moddate(t) == moddate_cyc(tt)) THEN
+   rm_cyc(:,:,t) = raw_data(:,:,t)-var_cyc(:,:,tt)
+   t=t+1
+  ELSE IF (tt < dim_cyc%time_dim) THEN
+   tt=tt+1
+  ELSE
+   tt=1
+  END IF 
+ END DO
+END IF
 
 !PRINT*, 'raw = ', raw_data(1,1,391)
 !PRINT*, 'syc = ', var_cyc(1,1,25)
@@ -209,6 +423,8 @@ CHARACTER(10) :: clocktime
 INTEGER :: sorted_ind(nanalog)
 !REAL :: sorted_dist(dim_archi%time_dim)
 
+!PRINT*, dim_archi%calendar
+
 CALL DATE_AND_TIME(clockdate, clocktime)
 IF (.NOT. silent) PRINT*,'begin sim loop', clockdate, ' ', clocktime
 IF (PRESENT(spatial_corr) .AND. PRESENT(ranks_archi) .AND. PRESENT(ranks_sim)) THEN
@@ -216,6 +432,9 @@ IF (PRESENT(spatial_corr) .AND. PRESENT(ranks_archi) .AND. PRESENT(ranks_sim)) T
 !$omp parallel default(shared) private(candidate_indices, candilen, alldist, sorted_ind) 
 !$omp do schedule(static)
  DO st=1,dim_sim%time_dim-timewin+1
+  IF (.NOT. silent) THEN
+   IF (MOD(st,360) == 0) PRINT*, 'starting ', dates_sim(st)
+  END IF  
 ! get candidate dates. 
 ! Candidate dates are all days of the archive period within a seasonal window around the simulated day
 ! and not from the same year as the simulated day.
@@ -223,7 +442,7 @@ IF (PRESENT(spatial_corr) .AND. PRESENT(ranks_archi) .AND. PRESENT(ranks_sim)) T
   candidate_indices=0
   candidate_indices(1:(dim_archi%time_dim-timewin+1),1) = get_candidates(dim_archi%time_dim-timewin+1, &
    & dates_archi(1:(dim_archi%time_dim-timewin+1)), dates_sim(st), &
-   & seasonwin)
+   & seasonwin, TRIM(dim_archi%calendar))
 !  READ(*,*)
   candilen = COUNT(candidate_indices(:,1) > 0)
 !  PRINT*, candidate_indices(candilen,1)
@@ -256,6 +475,9 @@ ELSE
 !$omp parallel default(shared) private(candidate_indices, candilen, alldist, sorted_ind) 
 !$omp do schedule(static)
  DO st=1,dim_sim%time_dim-timewin+1
+  IF (.NOT. silent) THEN
+   IF (MOD(st,360) == 0) PRINT*, 'starting ', dates_sim(st)
+  END IF 
 ! get candidate dates. 
 ! Candidate dates are all days of the archive period within a seasonal window around the simulated day
 ! and not from the same year as the simulated day.
@@ -263,7 +485,7 @@ ELSE
 !PRINT*, st
   candidate_indices(1:(dim_archi%time_dim-timewin+1),1) = get_candidates(dim_archi%time_dim-timewin+1, &
    & dates_archi(1:(dim_archi%time_dim-timewin+1)), dates_sim(st), &
-   & seasonwin)
+   & seasonwin, TRIM(dim_archi%calendar))
   candilen = COUNT(candidate_indices(:,1) > 0)
 !  PRINT*, 'candilen', candilen, candidate_indices(candilen,1)
 ! Define the candidate dates in the case of multi-day average distance as the days following the initial ones.
@@ -311,7 +533,7 @@ INTEGER :: ia !, ila, ilo
 !CHARACTER(10) :: clocktime
 !REAL :: meansim
 !REAL :: meanarch
-
+!IF (maxval(ranks_archi) < dim_archi%lon_dim*dim_archi%lat_dim) PRINT*, 'maxrank ', maxval(ranks_archi)
 !meansim = SUM(ranks_sim)/REAL(dim_archi%lon_dim*dim_archi%lat_dim)
 
 !CALL DATE_AND_TIME(clockdate, clocktime)
@@ -319,7 +541,7 @@ INTEGER :: ia !, ila, ilo
 DO ia=1,nanalog
 ! calculate correlation
  get_spearman_cor(ia) = 1-((6.0*SUM((ranks_archi(:,:,ia)-ranks_sim)**2))/ &
-  &((dim_archi%lon_dim*dim_archi%lat_dim)**3-(dim_archi%lon_dim*dim_archi%lat_dim)))
+  &((dim_archi%lon_dim*dim_archi%lat_dim)**3.-(dim_archi%lon_dim*dim_archi%lat_dim)))
 ! meanarch = SUM(ranks_archi(:,:,ia))/REAL(dim_archi%lon_dim*dim_archi%lat_dim)
 ! get_spearman_cor(ia) = ()/()
 END DO
@@ -419,12 +641,13 @@ END FUNCTION get_dist
 !> Select the candidate dates from the archive period. 
 !! This includes all days within a given season window around the simulated day 
 !! and from different years than the simulated day.
-FUNCTION get_candidates(tdim, dates_archi, date_target, seasonwin)
+FUNCTION get_candidates(tdim, dates_archi, date_target, seasonwin, archi_calendar)
 IMPLICIT NONE
 INTEGER, INTENT(IN) :: tdim 
 INTEGER, INTENT(IN) :: dates_archi(tdim)
 INTEGER, INTENT(IN) :: date_target
 INTEGER, INTENT(IN) :: seasonwin
+CHARACTER(*), INTENT(IN) :: archi_calendar
 INTEGER :: get_candidates(tdim)
 
 INTEGER :: at
@@ -437,6 +660,8 @@ INTEGER :: range_exclude(2)
 INTEGER :: mmdd_permitted(2*seasonwin+1)
 INTEGER :: nonleapadd
 
+!PRINT*, archi_calendar
+
 !PRINT*, tdim
 get_candidates = 0
 ! seperate archive and target year from month and day
@@ -444,36 +669,169 @@ yyyy_archi = dates_archi/10000
 yyyy_target = date_target/10000
 mmdd_archi = MOD(dates_archi,10000)
 mmdd_target = MOD(date_target,10000)
+SELECT CASE (archi_calendar)
+ CASE ("360_day")
+!  PRINT*, '360 calendar'
 ! calculate the dates to be excluded because they are within one year from the simulated date
-range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
-range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
-! get all month+day combinations that are within the season window in leapyears and 
-! an additional day for non-leapyears when the 29th of february is contained in the interval.
-CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
-!PRINT*, mmdd_permitted, nonleapadd
-k=0
+  range_exclude(1) = civildate2int_day(add_days_360cal(int2civildate(date_target),-180))
+  range_exclude(2) = civildate2int_day(add_days_360cal(int2civildate(date_target),180))
+! get all month+day combinations that are within the season window (no leapyear in 360 day calendar)
+  CALL get_mmdd_permitted_360cal(mmdd_target, seasonwin, mmdd_permitted)
+  k=0
 ! loop over all archive days
-DO at=1,tdim
+  DO at=1,tdim
 ! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
 ! If the day has a valid month+day combination ...
- IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) ) THEN
 ! and is not in the excluded range (because it is to close to the simulation date)
-  IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
 ! increase the candidate count and store it as a candidate index
       k=k+1
       get_candidates(k) = at
-   ELSE 
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
     CYCLE
    END IF
- ELSE
-  CYCLE
- END IF
-END DO
+  END DO
+ CASE ("365_day") ! no leap years
+! PRINT*, '365 calendar'
+! calculate the dates to be excluded because they are within one year from the simulated date
+  range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
+  range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
+! get all month+day combinations that are within the season window in leapyears and 
+! an additional day for non-leapyears when the 29th of february is contained in the interval.
+  CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
+!PRINT*, mmdd_permitted, nonleapadd
+  k=0
+! loop over all archive days
+  DO at=1,tdim
+! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
+! If the day has a valid month+day combination ...
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. mmdd_archi(at)==nonleapadd) THEN
+! and is not in the excluded range (because it is to close to the simulation date)
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+! increase the candidate count and store it as a candidate index
+      k=k+1
+      get_candidates(k) = at
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
+    CYCLE
+   END IF
+  END DO
+ CASE ("proleptic_gregorian") ! leap years every 4 years without exeption every 100 years except 400. (MPI model)
+! PRINT*, 'proleptic_gregorian'
+! calculate the dates to be excluded because they are within one year from the simulated date
+  range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
+  range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
+! get all month+day combinations that are within the season window in leapyears and 
+! an additional day for non-leapyears when the 29th of february is contained in the interval.
+  CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
+!PRINT*, mmdd_permitted, nonleapadd
+  k=0
+! loop over all archive days
+  DO at=1,tdim
+! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
+! If the day has a valid month+day combination ...
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear_proleptic_greg(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
+! and is not in the excluded range (because it is to close to the simulation date)
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+! increase the candidate count and store it as a candidate index
+      k=k+1
+      get_candidates(k) = at
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
+    CYCLE
+   END IF
+  END DO
+ CASE DEFAULT ! standard calendar
+
+!  PRINT*, 'standard calendar'
+! calculate the dates to be excluded because they are within one year from the simulated date
+  range_exclude(1) = civildate2int_day(add_days(int2civildate(date_target),-184))
+  range_exclude(2) = civildate2int_day(add_days(int2civildate(date_target),184))
+! get all month+day combinations that are within the season window in leapyears and 
+! an additional day for non-leapyears when the 29th of february is contained in the interval.
+  CALL get_mmdd_permitted(mmdd_target, seasonwin, mmdd_permitted, nonleapadd)
+!PRINT*, mmdd_permitted, nonleapadd
+  k=0
+! loop over all archive days
+  DO at=1,tdim
+! IF (seasondiff(mmdd_archi(at), mmdd_target) <= seasonwin ) THEN
+! If the day has a valid month+day combination ...
+   IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
+! and is not in the excluded range (because it is to close to the simulation date)
+    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+! increase the candidate count and store it as a candidate index
+      k=k+1
+      get_candidates(k) = at
+    ELSE 
+     CYCLE
+    END IF
+   ELSE
+    CYCLE
+   END IF
+  END DO
+END SELECT
 !PRINT*, get_candidates(1:370)
 !STOP
 END FUNCTION get_candidates
 
 ! **************************
+
+
+!> Define month+day combinations within a given seasonwindow for 360 day calendar case
+SUBROUTINE get_mmdd_permitted_360cal(mmdd, seasonwin, permitted)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: mmdd
+INTEGER, INTENT(IN) :: seasonwin
+INTEGER, INTENT(OUT) :: permitted(2*seasonwin+1)
+
+INTEGER :: mm, dd
+INTEGER :: ic
+INTEGER :: id
+
+permitted=0
+
+mm=mmdd/100
+dd=MOD(mmdd,100)
+id =1
+! start from simulation month+day
+permitted(1) = mmdd
+! add the seasonwin following days to the permitted ones
+DO ic=1,seasonwin
+ id=id+1
+ dd=dd+1
+ IF (dd > 30) THEN
+  mm = mm+1
+  IF (mm > 12) mm = 1
+  dd = 1
+ END IF
+ permitted(id) = mm*100+dd
+END DO
+! start again from the simulation day
+mm=mmdd/100
+dd=MOD(mmdd,100)
+! this time go backwards and add the seasonwin preceeding days to the permitted ones
+DO ic=1,seasonwin
+ id=id+1
+ dd=dd-1
+ IF (dd < 1) THEN
+  mm = mm-1
+  IF (mm < 1) mm = 12
+  dd = 30
+ END IF
+ permitted(id) = mm*100+dd
+END DO
+
+END SUBROUTINE get_mmdd_permitted_360cal
+
+!*******************************
 
 !> Define month+day combinations within a given seasonwindow in leapyears and
 !! if necessary a day to add for non-leap years.
@@ -661,6 +1019,21 @@ END IF
 
 END FUNCTION is_leapyear
 
+!*********************************
+
+LOGICAL FUNCTION is_leapyear_proleptic_greg(yyyy)
+IMPLICIT NONE
+INTEGER :: yyyy
+
+IF (MOD(yyyy, 4) /= 0) THEN
+  is_leapyear_proleptic_greg = .FALSE.
+ELSE
+  is_leapyear_proleptic_greg = .TRUE.
+END IF
+
+END FUNCTION is_leapyear_proleptic_greg
+
+
 ! ***************************************
 
 !> takes a date in integer format YYYYMMDD and returns a date in civildate_type.
@@ -680,6 +1053,42 @@ int2civildate%hh = 00
 END FUNCTION int2civildate
 
 !*******************************
+
+!> adds a number of days (plusdays) to a date (ref_date) for 360 day calendar
+!! every month has 30 days
+TYPE (civildate_type) FUNCTION add_days_360cal(ref_date, plusdays)
+IMPLICIT NONE
+TYPE (civildate_type) :: ref_date
+INTEGER :: plusdays
+TYPE (civildate_type) :: tmp_date
+
+tmp_date=ref_date
+tmp_date%dd=tmp_date%dd+plusdays
+DO WHILE (tmp_date%dd <= 0)
+!PRINT*, 'tmp_date', tmp_date
+ tmp_date%mm = tmp_date%mm-1
+ IF (tmp_date%mm <= 0) THEN
+  tmp_date%yyyy=tmp_date%yyyy-1
+  tmp_date%mm=tmp_date%mm+12
+ END IF
+! PRINT*, 'month', tmp_date%mm
+ tmp_date%dd=tmp_date%dd+30
+! PRINT*, 'tmp_date', tmp_date
+END DO
+
+DO WHILE (tmp_date%dd > 30)
+! IF (tmp_date%dd == 31) PRINT*, 'tmp_date', tmp_date
+ tmp_date%dd = tmp_date%dd - 30
+ tmp_date%mm = tmp_date%mm + 1
+ IF (tmp_date%mm > 12) THEN
+  tmp_date%yyyy=tmp_date%yyyy+1
+  tmp_date%mm=tmp_date%mm-12
+ END IF
+END DO 
+add_days_360cal = tmp_date
+END FUNCTION add_days_360cal
+
+! *******************************************
 
 !> adds a number of days (plusdays) to a date (ref_date)
 TYPE (civildate_type) FUNCTION add_days(ref_date, plusdays)
