@@ -1,0 +1,13 @@
+# conda env create environment.yml
+name: castf90
+channels:
+  - birdhouse
+  - ioos
+dependencies:
+  - python=2
+  - gcc
+  - openblas
+  - lapack95
+  - netcdf-fortran
+  - cdo
+  - nco
