@@ -6,8 +6,11 @@ channels:
 dependencies:
   - python=2
   - gcc
+  - libgfortran
+  - mkl
+  - mkl-service
   - openblas
   - lapack95
-  - netcdf-fortran
+  - netcdf-fortran >=4.4.4
   - cdo
   - nco
