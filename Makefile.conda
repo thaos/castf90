@@ -7,8 +7,12 @@ LDFLAGS = -Wl,-rpath $(LIBPATH)
 OPT_LIBS = -lhdf5 -lhdf5_hl -lnetcdf
 OPT_FORTRAN = -lnetcdff -llapack95
 OPT_MKL = -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
-OPT_BLAS = -lopenblas
-#OPT_BLAS = $(OPT_MKL)
+NOMKL = 0
+ifeq ($(NOMKL), 1)
+	OPT_BLAS = -lopenblas
+else
+	OPT_BLAS = $(OPT_MKL)
+endif
 LIBS = $(OPT_LIBS) $(OPT_BLAS) $(OPT_FORTRAN)
 
 OPT_PREPROC = -cpp -DCONDA
