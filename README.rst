@@ -2,7 +2,7 @@
 castf90
 =======
 
-Circulation analogue simulation tool in fortran95. 
+Circulation analogue simulation tool in fortran95.
 
 |Install with Conda|
 
@@ -16,7 +16,7 @@ castf90 is available as conda package. Install it with the following command:
 
 .. code:: bash
 
-    $ conda install -c birdhouse -c ioos castf90
+    $ conda install -c birdhouse -c conda-forge castf90
 
 From github
 -----------
@@ -40,7 +40,7 @@ or install the `castf90` dependencies manually in your current conda enviroment:
 .. code:: bash
 
    $ conda install -c birdhouse gcc openblas netcdf-fortran lapack95
-   $ conda install -c ioos cdo nco
+   $ conda install -c conda-forge cdo nco
 
 Build the analogue.out executable:
 
