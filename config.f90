@@ -29,6 +29,8 @@ TYPE files_type
  CHARACTER(200) :: outputfile
  CHARACTER(200) :: seacycfilebase
  CHARACTER(200) :: seacycfilesim
+ CHARACTER(200) :: basedatefile
+ CHARACTER(200) :: simdatefile
 END TYPE files_type
 
 TYPE param_type

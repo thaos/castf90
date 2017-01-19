@@ -40,7 +40,8 @@ CONTAINS
 
 !> Handles the workflow: get data and do calculation. 
 SUBROUTINE mainsub(dim_archi, dim_sim, nanalog, analogue_dates, distances, &
- & spatial_corr, silent, varname, archivefile, simulationfile, seacyc, &
+ & spatial_corr, silent, varname, archivefile, simulationfile, basedatefile, &
+ & simdatefile, seacyc, &
  & seacycfilebase, seacycfilesim, cycsmooth, calccor, distfun, seasonwin, &
  & timewin, dates_sim)
 IMPLICIT NONE
@@ -54,6 +55,8 @@ LOGICAL, INTENT(IN) :: silent
 CHARACTER(*), INTENT(IN) :: varname
 CHARACTER(*), INTENT(IN) :: archivefile
 CHARACTER(*), INTENT(IN) :: simulationfile
+CHARACTER(*), INTENT(IN) :: basedatefile
+CHARACTER(*), INTENT(IN) :: simdatefile
 LOGICAL, INTENT(IN) :: seacyc
 CHARACTER(*), INTENT(IN) :: seacycfilebase
 CHARACTER(*), INTENT(IN) :: seacycfilesim
@@ -100,8 +103,8 @@ INTEGER :: it
  var_archi = get_data(TRIM(archivefile), TRIM(varname), dim_archi)
  var_sim = get_data(TRIM(simulationfile), TRIM(varname), dim_sim)
  IF (.NOT. silent) PRINT*, "got data"
- dates_archi = get_dates(TRIM(archivefile), dim_archi%time_dim, "base_dates.txt", dim_archi%ncstart(3))
- dates_sim = get_dates(TRIM(simulationfile), dim_sim%time_dim, "sim_dates.txt", dim_sim%ncstart(3))
+ dates_archi = get_dates(TRIM(archivefile), dim_archi%time_dim, basedatefile, dim_archi%ncstart(3))
+ dates_sim = get_dates(TRIM(simulationfile), dim_sim%time_dim, simdatefile, dim_sim%ncstart(3))
  IF (.NOT. silent) PRINT*, "got dates" 
 
 ! remove seasonal cycle, that is calculate anomalies

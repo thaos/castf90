@@ -12,7 +12,7 @@ export OMP_NUM_THREADS=12
 
 cd /home/users/sradanov/Code/Analogue/RSdev
 
-./analogue.out config_plasimtest_half.txt > logging_plasim_half.txt
+#./analogue.out config_plasimtest_half.txt > logging_plasim_half.txt
 
 #./run_analogs_slp.sh 
 #./run_analogs_case.sh -D-20.0,30.0,30.0,70.0 -S2013-12-01,2014-02-28 -B1984-01-01,2013-12-31 -w30 -dmahalanobis -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/
@@ -84,3 +84,7 @@ cd /home/users/sradanov/Code/Analogue/RSdev
 #./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1973-01-01,2012-12-31 -Nbasesp -w30 -dmahalanobis -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
 #./run_analogs_case.sh -S1952-01-01,1991-12-31 -B1952-01-01,1991-12-31 -Nbasesp -w30 -dmahalanobis -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
 #./run_analogs_case.sh -S1973-01-01,2012-12-31 -B1973-01-01,2012-12-31 -Nbasesp -w30 -dmahalanobis -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+
+./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1951-01-01,1982-12-31 -w30 -drms -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+#./run_analogs_case.sh -S2013-12-01,2014-02-28 -B1983-01-01,2014-12-31 -w30 -drms -vslp -p/home/scratch01/sradanov/A2C2/NCEP/ -P/home/scratch01/sradanov/A2C2/NCEP/ -o/home/estimr2/sradanov/A2C2/
+

@@ -24,10 +24,7 @@
 #
 # Calcul en temps continu d'analogues de SLP sur les reanalyses NCEP
 # Pascal Yiou (LSCE)
-## Version 1.0
-# Se lance par:
-# qsub -q mediump -l nodes=1:ppn=12 /home/users/yiou/RStat/A2C2/analogs_slp-genericpar.sh
-#
+## Version 2.0
 # update S. Radanovics 04/2015:
 # handling options
 # replace calculation of analogues in R by fortran program
@@ -44,9 +41,9 @@ pdomain=-80.0,50.0,22.5,70.0
 psim=1948-01-01,2014-12-31
 pbase=1948-01-01,2014-12-31
 region=NA
-basedir=/home/users/sradanov/Data/NCEP/
-simdir=/home/users/sradanov/Data/NCEP/
-outdir=/home/scratch01/sradanov/A2C2/
+basedir=./
+simdir=./
+outdir=./
 seacycnorm=base
 wma=91
 calccor=TRUE
@@ -121,7 +118,7 @@ while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:f:h:' opt ; do
  esac
 done
 
-module load cdo/1.6
+module load cdo/1.6.9
 ## Telechargement des reanalyses:
 if [ $silent != "ilent" ]; then echo -e "Downloading NCEP SLP data"; fi
 ./getNCEP_slp.sh ${pdomain} ${region} ${basedir} ${pbase} ${simdir} ${psim} ${sourcedir} ${varname} ${level} ${detrend} ${seacycnorm} ${date_stamp} ${lwin} ${seasonwin} ${distancefun} ${outdir} ${silent} ${nanalog} ${format}
@@ -133,6 +130,9 @@ esac
 
 # write stuff to configuration file
 cat <<EOF >> config_${date_stamp}.txt
+ my_files%basedatefile = "base_dates_${date_stamp}.txt"
+ my_files%simdatefile = "sim_dates_${date_stamp}.txt"
+/
 &PARAM
  my_params%timewin = $lwin
  my_params%varname = "${varname}"

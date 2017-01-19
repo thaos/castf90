@@ -89,7 +89,7 @@ datestring1=`echo $pbase | awk '{ gsub(/,/, "_"); print }'`
 # domain and date selection
 if [ ${silent} != "ilent" ]; then echo ${pbase} ; fi
 cdo -s sellonlatbox,${pdomain} -seldate,${pbase} ${basedir}base_${varname}_${dtrstr}${region}_${year0}-${year1}.nc ${basedir}base_${varname}_${dtrstr}${region}_${datestring1}_${namestring}.nc
-cdo -s showdate ${basedir}base_${varname}_${dtrstr}${region}_${datestring1}_${namestring}.nc | awk '{gsub(/-/,""); print}' > base_dates.txt
+#cdo -s showdate ${basedir}base_${varname}_${dtrstr}${region}_${datestring1}_${namestring}.nc | awk '{gsub(/-/,""); print}' > base_dates_${date_stamp}.txt
 
 # change back to source directory
 cd $sourcedir
@@ -129,14 +129,14 @@ fi
 # domain and dates selection
 datestring2=`echo $psim | awk '{ gsub(/,/, "_"); print }'`
 cdo -s sellonlatbox,${pdomain} -seldate,${psim} ${simdir}sim_${varname}_${dtrstr}${region}_${year0}-${year1}.nc  ${simdir}sim_${varname}_${dtrstr}${region}_${datestring2}_${namestring}.nc
-cdo -s showdate ${simdir}sim_${varname}_${dtrstr}${region}_${datestring2}_${namestring}.nc | awk '{gsub(/-/,""); print}' > sim_dates.txt
+#cdo -s showdate ${simdir}sim_${varname}_${dtrstr}${region}_${datestring2}_${namestring}.nc | awk '{gsub(/-/,""); print}' > sim_dates_${date_stamp}.txt
 
 # change back to source directory
 cd $sourcedir
 # write simulation filename to configuration file
 cat <<EOF >> config_${date_stamp}.txt
  my_files%simulationfile = "${simdir}sim_${varname}_${dtrstr}${region}_${datestring2}_${namestring}.nc"
- my_files%outputfile ="${outdir}ana_${varname}_${level}_${dtrstr}${seasycnorm}_${distancefun}_${region}_sim_${datestring2}_base_${datestring1}_${namestring}_${lwin}_${seasonwin}_${nanalog}${format}"
+ my_files%outputfile ="${outdir}ana_${varname}_${level}_${dtrstr}${seacycnorm}_${distancefun}_${region}_sim_${datestring2}_base_${datestring1}_${namestring}_${lwin}_${seasonwin}_${nanalog}${format}"
 EOF
 date=`date +"%d/%m/%Y (%H:%M:%S)"`
 if [ ${silent} != "ilent" ]; then echo -e "\n files read: ${date}\n" ; fi
@@ -169,7 +169,6 @@ esac
 cat <<EOF >> config_${date_stamp}.txt
  my_files%seacycfilebase = "seasoncyc_base.nc"
  my_files%seacycfilesim = "seasoncyc_sim.nc"
-/
 EOF
 
 date=`date +"%d/%m/%Y (%H:%M:%S)"`

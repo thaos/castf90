@@ -129,6 +129,7 @@ IF (numberofachunks == 1 .AND. numberofschunks == 1) THEN
  CALL mainsub(dim_archi, dim_sim, configs%param%nanalog, analogue_dates, &
   & distances, spatial_corr, configs%param%silent, configs%param%varname, &
   & configs%files%archivefile, configs%files%simulationfile, &
+  & TRIM(configs%files%basedatefile), TRIM(configs%files%simdatefile), &
   & configs%param%seacyc, configs%files%seacycfilebase, &
   & configs%files%seacycfilesim, configs%param%cycsmooth, &
   & configs%param%calccor, configs%param%distfun, configs%param%seasonwin, &
@@ -176,6 +177,7 @@ ELSE ! if the calculation has to be done in chunks
     & distances(anastart:anaend,timestart:timeend), spatial_corr(anastart:anaend,timestart:timeend), &
     & configs%param%silent, configs%param%varname, &
     & configs%files%archivefile, configs%files%simulationfile, &
+    & TRIM(configs%files%basedatefile), TRIM(configs%files%simdatefile), &
     & configs%param%seacyc, configs%files%seacycfilebase, &
     & configs%files%seacycfilesim, configs%param%cycsmooth, &
     & configs%param%calccor, configs%param%distfun, configs%param%seasonwin, &

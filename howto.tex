@@ -9,7 +9,7 @@
 \maketitle
 \tableofcontents
 \section{What does it do?}
-CASTf90 first downloads fields from NCEP reanalysis (sea level pressure, slp, as default) and then searches for a given simulation period the most similar cases within a given data base period according to a given distance measure. Finally it writes the N most similar days including the calculated distances for them to an output file. 
+CASTf90 first downloads fields from NCEP reanalysis (sea level pressure, slp, as default) and then searches for a given simulation period the most similar cases within a given data base period according to a given distance measure. Finally it writes the N most similar days including the calculated distances for them to an output file. For other data the user has to provide the input files in NetCDF format with a 3d variable (lat,lon,time) and a corresponding configuration file.
 \section{Requirements}
 CASTf90 is developed for Linux systems. It might run on macOSX, but this was never tested. 
 
@@ -111,6 +111,7 @@ Source files
  \item distance.f90  
  \item eofs.f90  
  \item read.f90  
+ \item write.f90
  \item routines.f90 
 \end{itemize}
 Makefile
@@ -286,7 +287,7 @@ run
 
 \section{Run CASTf90}
 \subsection{Run including the whole data handling process}
-Before running the script the first time or after an update, please verify that the variable \textit{sourcedir} in run\_analogs\_case.sh (line 37) is set to the directory containing the source code.
+Before running the script the first time or after an update, please verify that the variable \textit{sourcedir} in run\_analogs\_case.sh (line 61) is set to the directory containing the source code.
 
 To anable parallel calculation the OMP\_NUM\_THREADS environement variable has to be set. The command depends on the active shell, but might be something like 
 \begin{verbatim}
@@ -400,6 +401,8 @@ Suppose you have already constructed your input data files (and seasonal cycle f
  my_files%outputfile ="/../../ana_slp_surface_rms_NA_sim_1985-01-01_2012-12-31_base_1985-01-01_2012-12-31_-80.0_50.0_22.5_70.0_1_30.txt"
  my_files%seacycfilebase = "/../../seasoncyc_base.nc"
  my_files%seacycfilesim = "/../../seasoncyc_sim.nc"
+ my_files%basedatefile = "/../../base_dates.txt"
+ my_files%simdatefile = "/../../sim_dates.txt"
 /
 &PARAM
  my_params%timewin = 1
@@ -410,6 +413,7 @@ Suppose you have already constructed your input data files (and seasonal cycle f
  my_params%seasonwin = 30
  my_params%distfun = "rms"
  my_params%calccor = .TRUE.
+ my_params%oformat = ".txt"
  my_params%silent = .FALSE.
 /
 &ATTS
@@ -432,6 +436,7 @@ In the \textit{\&PARAMS} group:
  \item \textit{my\_params\%seasonwin} (type integer) Seasonal restriction (see -w option).
  \item \textit{my\_params\%distfun} (type character) Distance function (see -d option)
  \item \textit{my\_params\%calccor} .TRUE. for additional rank correlation output, .FALSE. otherwise. (see -c option)
+ \item \textit{my\_parames\%oformat} (type character) if it is set to ".nc" the output is written to a NetCDF file, otherwise an ascii file is written. (see -f option)
  \item \textit{my\_params\%silent} .TRUE. for silent mode, .FALSE. otherwise.
 \end{itemize}
 
