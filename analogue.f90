@@ -99,7 +99,7 @@ IF (mem < 12000000) THEN
 ELSE IF (mem < 36000000) THEN
  splitfactor=8
 ELSE 
- splitfactor = 8
+ splitfactor = 12
 END IF
 IF (archimem+simmem > mem/REAL(splitfactor) ) THEN
  PRINT*, 'big archive and/or simulation'

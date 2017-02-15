@@ -46,42 +46,7 @@ This will create a directory named ``castf90'', that contains all sources. The g
  \item Create an account on github (if you don't already have one)
  \item Write an email with your github username to sabine.radanovics@lsce.ipsl.fr in order to get added as a developer and thus get permissions to push your changes to the repository.
 \end{enumerate}
-%\subsection{Inside LSCE}
-%The code is  located in a cvs repository situated on the on the common file system (make sure to be logged in on obelix...), so the first step is to checkout a so called working copy from the repository.
-%To this end:
-%
-%\begin{enumerate}
-%\item create a directory where you want the code to be located
-%\begin{verbatim}
-% mkdir Mydir
-%\end{verbatim}
-%and change to this directory
-%\begin{verbatim}
-% cd Mydir
-%\end{verbatim}
-%\item set the environment variable CVSROOT to /home/users/sradanov/cvs. The command depends on the active shell but might be something like 
-%\begin{verbatim}
-% export CVSROOT=/home/users/sradanov/cvs
-%\end{verbatim}
-%Now cvs knows where to look for the repository.
-%\item checkout the working copy from the repository with 
-%\begin{verbatim}
-% cvs checkout Analogue/RSdev 
-%\end{verbatim}
-%\end{enumerate}
-%Now you should have some fortran90 source files, some shell scripts, an example pbsscript and a makefile in your directory. (See \autoref{sec:listoffiles} for a complete list.)
-%
-%From time to time you may run
-%\begin{verbatim}
-% cvs status
-%\end{verbatim}
-%to see if the source files are still all Up-to-date. If this is not the case, you may run
-%\begin{verbatim}
-% cvs update
-%\end{verbatim}
-%to get the latest version of the source files and scripts. Attention! If .f90 sources were updated the program has to be recompiled! (see \autoref{sec:compil} for details). If run\_analogs\_case.sh has been updated, don't forget to change the variable \textit{sourcedir}. 
-%
-%For further details on cvs and its commands please refer to the cvs manual.
+
 \subsection{...or download the official version from the A2C2 project homepage}
 
 \href{https://a2c2.lsce.ipsl.fr/index.php/licences}{https://a2c2.lsce.ipsl.fr/index.php/licences}
@@ -141,14 +106,45 @@ Manual
 \label{sec:compil}
 \subsection{On obelix/with the ifort compiler}
 CASTf90 comes with a makefile to compile the fortran90 sources, however, it is assumed that netcdf libraries with fortran90 interface and the lapack library with fortran95 interface are installed.
-If you are working on "obelix" you just have to load the netcdf module using
+If you are working on "obelix" you first have to load the netcdf module using
 \begin{verbatim}
  module load netcdf/4p
 \end{verbatim}
-before running 
+The intel compiler (ifort) has already lapack libraries integrated that are accessible using the -mkl option during compilation and linking. However, the fortran95 interface has to be compiled. \textbf{This has to be done only once. It is not necessary to redo this step after a castf90 update.} To compile the lapack95 interface:
+\begin{enumerate}
+\item copy the folder
+\begin{verbatim}
+/home/users/sradanov/Code/Analogue/RSdev/lapack95/
+\end{verbatim}
+to your directory containing the castf90 code.
+\item remove all *.mod files from the lapack95 directory
+\item remove all *.a files from the lapack95/lib directory
+\item inside the lapack95 directory run
+\begin{verbatim}
+ make libintel64 INSTALL_DIR=.
+\end{verbatim}
+This may take a 1-2 minutes since there are many files to compile.
+\item move the created *.mod files from the lapack95/include directory to the lapack95 directory. If they are not in the lapack95/include directory, they may be in some subdirectory.
+\item verify that there is a new *.a file in the lapack95/lib directory. if the new file is not named  libmkl\_lapack95.a rename it.
+\item leave the lapack95 directory.
+\end{enumerate}
+Now you can compile castf90. \textbf{This is necessary after each castf90 update}:
+\begin{enumerate}
+\item open the makefile named Makefile with your favorite text editor.
+\item in line 2 set 
+\begin{verbatim}
+INCLUDEPATH2 = <path to your castf90 code>/lapack95
+\end{verbatim}
+\item in line 4 set
+\begin{verbatim}
+LIBPATH2 = <path to your castf90 code>/lapack95/lib
+\end{verbatim}
+\item run
 \begin{verbatim}
  make -f Makefile
 \end{verbatim}
+\end{enumerate}
+
 Elsewhere please make sure that netcdf \textbf{AND} its fortran90 interface are installed and that INCLUDEPATH in the makefile is the directory containing netcdf.mod, and LIBPATH the one containing libnetcdff. 
 
 The intel compiler already comes with the -mkl option that gives access to the lapack library, however, the lapack95 interface may need to be installed separately. INCLUDEPATH2 and LIBPATH2 contain the .mod and the lib files for lapack95 respectively. 
@@ -424,7 +420,7 @@ Suppose you have already constructed your input data files (and seasonal cycle f
  my_atts%predictordom = "-80.0,50.0,22.5,70.0"
 /
 \end{verbatim}
-There are three groups: \textit{\&FILES}, \textit{\&PARAMS} and \textit{\&ATTS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file, the output file and the files containing the seasonal cycle to be removed from the archive and the  simulation respectively. These are character chain type variables and thus the values need to be in double quotes. The variables have to be present even if no seasonal cycle should be removed - the values are ignored in this case though.
+There are three groups: \textit{\&FILES}, \textit{\&PARAMS} and \textit{\&ATTS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file, the output file and the files containing the seasonal cycle to be removed from the archive and the  simulation respectively. These are character chain type variables and thus the values need to be in double quotes. The variables have to be present even if no seasonal cycle should be removed - the values are ignored in this case though. The last two are files that will be written by the fortran program. That means that you need write permissions in the directory where they are based.
 
 In the \textit{\&PARAMS} group:
 \begin{itemize}
