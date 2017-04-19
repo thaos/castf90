@@ -54,6 +54,7 @@ nanalog=20
 varname=slp
 level=surface
 detrend=FALSE
+same_date=FALSE
 silent=bla
 format=.txt
 
@@ -61,7 +62,7 @@ format=.txt
 sourcedir=/home/users/sradanov/Code/Analogue/RSdev
 
 # processing arguments
-while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:f:h:' opt ; do
+while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:a:s:f:h:' opt ; do
  case $opt in
   D) pdomain=$OPTARG ;;
   C) lwin=$OPTARG ;;
@@ -80,6 +81,7 @@ while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:f:h:' opt ; do
   n) nanalog=$OPTARG ;;
   l) level=$OPTARG ;;
   t) detrend=$OPTARG ;;
+  a) same_date=$OPTARG ;;
   s) silent=$OPTARG ;;
   f) format=$OPTARG ;;
   h) echo -e "Usage: $0 [options] \n" ; 
@@ -109,6 +111,8 @@ while getopts 'D:C:S:B:R:P:p:o:m:N:c:w:d:v:n:l:t:s:f:h:' opt ; do
    echo "  -n<numberofanalogues> Number of closest analogue dates to write to output (def: $nanalog)" ;
    echo "  -v<varname> name of the NCEP field to download" ;
    echo "     The name has to be the same as in the filename in the NCEP database (def:$varname)" ;
+   echo "  -a<logical> TRUE if the two input files are from different simulations and you do not need to exclude the base dates from the same year as the sim dates,";
+   echo "  FALSE if not (def: FALSE)" ;
    echo "  -l<vertical level> Either 'surface' for variables like slp or pressure level in hPa, e.g. '500'" ;
    echo "  -t<logical> TRUE if the predictor variable (see -v) should be detrended, FALSE if not (def: FALSE)" ;
    echo "      For example for geopotential as a circulation variable in order to remove the temperature induced trend" ;
@@ -143,6 +147,7 @@ cat <<EOF >> config_${date_stamp}.txt
  my_params%distfun = "${distancefun}"
  my_params%calccor = .${calccor}.
  my_params%oformat = "${format}"
+ my_params%samedate = .${same_date}.
 EOF
 
 if [ $silent != "ilent" ]; then 
