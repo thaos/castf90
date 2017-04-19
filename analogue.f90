@@ -127,7 +127,7 @@ IF (numberofachunks == 1 .AND. numberofschunks == 1) THEN
    & spatial_corr(configs%param%nanalog, dim_sim%time_dim), dates_sim(dim_sim%time_dim))
 ! call the main routine that reads the data and triggers the calculation
  CALL mainsub(dim_archi, dim_sim, configs%param%nanalog, analogue_dates, &
-  & distances, spatial_corr, configs%param%silent, configs%param%varname, &
+  & distances, spatial_corr, configs%param%samedate, configs%param%silent, configs%param%varname, &
   & configs%files%archivefile, configs%files%simulationfile, &
   & TRIM(configs%files%basedatefile), TRIM(configs%files%simdatefile), &
   & configs%param%seacyc, configs%files%seacycfilebase, &
@@ -175,7 +175,7 @@ ELSE ! if the calculation has to be done in chunks
    CALL mainsub(dim_archi_tmp, dim_sim_tmp, configs%param%nanalog, &
     & analogue_dates(anastart:anaend,timestart:timeend), &
     & distances(anastart:anaend,timestart:timeend), spatial_corr(anastart:anaend,timestart:timeend), &
-    & configs%param%silent, configs%param%varname, &
+    & configs%param%samedate, configs%param%silent, configs%param%varname, &
     & configs%files%archivefile, configs%files%simulationfile, &
     & TRIM(configs%files%basedatefile), TRIM(configs%files%simdatefile), &
     & configs%param%seacyc, configs%files%seacycfilebase, &

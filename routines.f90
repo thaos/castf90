@@ -40,7 +40,7 @@ CONTAINS
 
 !> Handles the workflow: get data and do calculation. 
 SUBROUTINE mainsub(dim_archi, dim_sim, nanalog, analogue_dates, distances, &
- & spatial_corr, silent, varname, archivefile, simulationfile, basedatefile, &
+ & spatial_corr, same_date, silent, varname, archivefile, simulationfile, basedatefile, &
  & simdatefile, seacyc, &
  & seacycfilebase, seacycfilesim, cycsmooth, calccor, distfun, seasonwin, &
  & timewin, dates_sim)
@@ -52,6 +52,7 @@ INTEGER, INTENT(OUT) :: analogue_dates(nanalog,dim_sim%time_dim)
 REAL(8), INTENT(OUT) :: distances(nanalog,dim_sim%time_dim)
 REAL, INTENT(OUT) :: spatial_corr(nanalog,dim_sim%time_dim)
 LOGICAL, INTENT(IN) :: silent
+LOGICAL, INTENT(IN) :: same_date
 CHARACTER(*), INTENT(IN) :: varname
 CHARACTER(*), INTENT(IN) :: archivefile
 CHARACTER(*), INTENT(IN) :: simulationfile
@@ -133,31 +134,34 @@ SELECT CASE (TRIM(distfun))
    ! compute analogues 
    IF (calccor) THEN
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
-     & ranks_archi, ranks_sim, spatial_corr)
+     & dim_sim, rms, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances, ranks_archi, ranks_sim, spatial_corr)
    ELSE 
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+     & dim_sim, rms, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances)
     END IF
  CASE("cosine", "cos")
   ! compute analogues 
    IF (calccor) THEN
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, cosdist, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
-     & ranks_archi, ranks_sim, spatial_corr)
+     & dim_sim, cosdist, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances, ranks_archi, ranks_sim, spatial_corr)
    ELSE 
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, cosdist, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+     & dim_sim, cosdist, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances)
     END IF
  CASE("s1","S1","TWS","tws")
   ! compute analogues 
    IF (calccor) THEN
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, S1, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
-     & ranks_archi, ranks_sim, spatial_corr)
+     & dim_sim, S1, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances, ranks_archi, ranks_sim, spatial_corr)
    ELSE 
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, S1, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+     & dim_sim, S1, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances)
     END IF
  CASE("mahalanobis")
 ! allocate additional variables needed in case of mahalanobis distance
@@ -209,20 +213,22 @@ END IF
    dim_pcarchi%time_dim = dim_archi%time_dim
   IF (calccor) THEN
    CALL compute_analogues(dates_sim, dates_archi, pcs_sim, pcs_archi, dim_pcarchi, &
-    & dim_pcsim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
-    & ranks_archi, ranks_sim, spatial_corr)
+    & dim_pcsim, rms, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+    & distances, ranks_archi, ranks_sim, spatial_corr)
   ELSE 
    CALL compute_analogues(dates_sim, dates_archi, pcs_sim, pcs_archi, dim_pcarchi,  &
-    & dim_pcsim, rms, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+    & dim_pcsim, rms, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances)
   END IF
  CASE("of","opticalflow")
   IF (calccor) THEN
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, of, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
-     & ranks_archi, ranks_sim, spatial_corr)
+     & dim_sim, of, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances, ranks_archi, ranks_sim, spatial_corr)
    ELSE 
     CALL compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
-     & dim_sim, of, nanalog, seasonwin, timewin, silent, analogue_dates, distances)
+     & dim_sim, of, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+     & distances)
    END IF
  CASE DEFAULT
    PRINT*, 'No valid distance function found. Please choose one of "rms", "rmse", "euclidean", &
@@ -396,8 +402,8 @@ END FUNCTION wmasmooth
 
 !> Actual analogue computation subroutine.
 SUBROUTINE compute_analogues(dates_sim, dates_archi, var_sim, var_archi, dim_archi, &
- & dim_sim, distfun, nanalog, seasonwin, timewin, silent, analogue_dates, distances, &
- & ranks_archi, ranks_sim,  spatial_corr)
+ & dim_sim, distfun, nanalog, seasonwin, timewin, same_date, silent, analogue_dates, &
+ & distances, ranks_archi, ranks_sim,  spatial_corr)
 IMPLICIT NONE
 TYPE (dims_type), INTENT(IN) :: dim_sim
 TYPE (dims_type), INTENT(IN) :: dim_archi
@@ -409,6 +415,7 @@ INTEGER, INTENT(IN) :: dates_archi(dim_archi%time_dim)
 REAL(8), INTENT(IN) :: var_sim(dim_sim%lon_dim, dim_sim%lat_dim, dim_sim%time_dim)
 REAL(8), INTENT(IN) :: var_archi(dim_archi%lon_dim, dim_archi%lat_dim, dim_archi%time_dim)
 LOGICAL, INTENT(IN) :: silent
+LOGICAL, INTENT(IN) :: same_date
 INTEGER, OPTIONAL, INTENT(IN) :: ranks_archi(dim_archi%lon_dim, dim_archi%lat_dim, dim_archi%time_dim)
 INTEGER, OPTIONAL, INTENT(IN) :: ranks_sim(dim_sim%lon_dim, dim_sim%lat_dim, dim_sim%time_dim)
 REAL(8), EXTERNAL ::  distfun
@@ -445,7 +452,7 @@ IF (PRESENT(spatial_corr) .AND. PRESENT(ranks_archi) .AND. PRESENT(ranks_sim)) T
   candidate_indices=0
   candidate_indices(1:(dim_archi%time_dim-timewin+1),1) = get_candidates(dim_archi%time_dim-timewin+1, &
    & dates_archi(1:(dim_archi%time_dim-timewin+1)), dates_sim(st), &
-   & seasonwin, TRIM(dim_archi%calendar))
+   & seasonwin, TRIM(dim_archi%calendar), same_date)
 !  READ(*,*)
   candilen = COUNT(candidate_indices(:,1) > 0)
 !  PRINT*, candidate_indices(candilen,1)
@@ -488,7 +495,7 @@ ELSE
 !PRINT*, st
   candidate_indices(1:(dim_archi%time_dim-timewin+1),1) = get_candidates(dim_archi%time_dim-timewin+1, &
    & dates_archi(1:(dim_archi%time_dim-timewin+1)), dates_sim(st), &
-   & seasonwin, TRIM(dim_archi%calendar))
+   & seasonwin, TRIM(dim_archi%calendar), same_date)
   candilen = COUNT(candidate_indices(:,1) > 0)
 !  PRINT*, 'candilen', candilen, candidate_indices(candilen,1)
 ! Define the candidate dates in the case of multi-day average distance as the days following the initial ones.
@@ -644,12 +651,14 @@ END FUNCTION get_dist
 !> Select the candidate dates from the archive period. 
 !! This includes all days within a given season window around the simulated day 
 !! and from different years than the simulated day.
-FUNCTION get_candidates(tdim, dates_archi, date_target, seasonwin, archi_calendar)
+FUNCTION get_candidates(tdim, dates_archi, date_target, seasonwin, archi_calendar,&
+ & same_date)
 IMPLICIT NONE
 INTEGER, INTENT(IN) :: tdim 
 INTEGER, INTENT(IN) :: dates_archi(tdim)
 INTEGER, INTENT(IN) :: date_target
 INTEGER, INTENT(IN) :: seasonwin
+LOGICAL, INTENT(IN) :: same_date
 CHARACTER(*), INTENT(IN) :: archi_calendar
 INTEGER :: get_candidates(tdim)
 
@@ -687,12 +696,17 @@ SELECT CASE (archi_calendar)
 ! If the day has a valid month+day combination ...
    IF (ANY(mmdd_permitted == mmdd_archi(at)) ) THEN
 ! and is not in the excluded range (because it is to close to the simulation date)
-    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+    IF (.NOT. same_date) THEN
+      IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
 ! increase the candidate count and store it as a candidate index
+        k=k+1
+        get_candidates(k) = at
+      ELSE 
+       CYCLE
+      END IF
+    ELSE
       k=k+1
       get_candidates(k) = at
-    ELSE 
-     CYCLE
     END IF
    ELSE
     CYCLE
@@ -714,12 +728,17 @@ SELECT CASE (archi_calendar)
 ! If the day has a valid month+day combination ...
    IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. mmdd_archi(at)==nonleapadd) THEN
 ! and is not in the excluded range (because it is to close to the simulation date)
-    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+    IF (.NOT. same_date) THEN
+      IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
 ! increase the candidate count and store it as a candidate index
+        k=k+1
+        get_candidates(k) = at
+      ELSE 
+       CYCLE
+      END IF
+    ELSE
       k=k+1
       get_candidates(k) = at
-    ELSE 
-     CYCLE
     END IF
    ELSE
     CYCLE
@@ -741,12 +760,17 @@ SELECT CASE (archi_calendar)
 ! If the day has a valid month+day combination ...
    IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear_proleptic_greg(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
 ! and is not in the excluded range (because it is to close to the simulation date)
-    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+    IF (.NOT. same_date) THEN
+      IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
 ! increase the candidate count and store it as a candidate index
+        k=k+1
+        get_candidates(k) = at
+      ELSE 
+       CYCLE
+      END IF
+    ELSE
       k=k+1
       get_candidates(k) = at
-    ELSE 
-     CYCLE
     END IF
    ELSE
     CYCLE
@@ -769,12 +793,17 @@ SELECT CASE (archi_calendar)
 ! If the day has a valid month+day combination ...
    IF (ANY(mmdd_permitted == mmdd_archi(at)) .OR. (.NOT. is_leapyear(yyyy_archi(at)) .AND. mmdd_archi(at)==nonleapadd)) THEN
 ! and is not in the excluded range (because it is to close to the simulation date)
-    IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
+    IF (.NOT. same_date) THEN
+      IF (dates_archi(at) < range_exclude(1) .OR. dates_archi(at) > range_exclude(2)) THEN
 ! increase the candidate count and store it as a candidate index
+        k=k+1
+        get_candidates(k) = at
+      ELSE 
+       CYCLE
+      END IF
+    ELSE
       k=k+1
       get_candidates(k) = at
-    ELSE 
-     CYCLE
     END IF
    ELSE
     CYCLE

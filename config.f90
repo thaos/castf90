@@ -43,6 +43,7 @@ TYPE param_type
  CHARACTER(20) :: distfun
  LOGICAL :: calccor
  CHARACTER(10) :: oformat
+ LOGICAL :: samedate
  LOGICAL :: silent
 END TYPE param_type
  
