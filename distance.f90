@@ -205,7 +205,11 @@ END DO
 !PRINT*, gradmat(1,:)
 !PRINT*, nx, ny, mcount
 ! linear model (lapack library) to derive beta 0-2, that is intensity error, delta x and delta y
- CALL gels(gradmat,beta,'N',info) 
+#ifdef CONDA
+ CALL la_gels(gradmat,beta,'N',info)
+#else
+ CALL gels(gradmat,beta,'N',info)
+#endif 
 IF (PRESENT(infoin) .AND. infoin == 3) THEN
  PRINT*, 'lm beta ', beta(1:3)
 ! optimise betas using function with non-linear terms and BFGS optimisation

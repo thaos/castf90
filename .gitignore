@@ -3,3 +3,6 @@
 *.a
 *.mod
 *.out
+
+# output files
+config.txt
