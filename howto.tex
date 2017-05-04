@@ -93,7 +93,7 @@ Library code (github only)
 \begin{itemize}
  \item Directory: Blas
  \item Directory: Lapack
- \item Directory: Lapack95
+ \item Directory: lapack95
  \item Directory: Netcdf\_fortran
 \end{itemize}
 Manual
@@ -112,19 +112,22 @@ If you are working on "obelix" you first have to load the netcdf module using
 \end{verbatim}
 The intel compiler (ifort) has already lapack libraries integrated that are accessible using the -mkl option during compilation and linking. However, the fortran95 interface has to be compiled. \textbf{This has to be done only once. It is not necessary to redo this step after a castf90 update.} To compile the lapack95 interface:
 \begin{enumerate}
-\item copy the folder
-\begin{verbatim}
-/home/users/sradanov/Code/Analogue/RSdev/lapack95/
-\end{verbatim}
-to your directory containing the castf90 code.
+\item change to the lapack95 directory
+\item if there are lib and include subdirectories, clean them:
+\begin{itemize}
 \item remove all *.mod files from the lapack95 directory
 \item remove all *.a files from the lapack95/lib directory
+\end{itemize}
+note that after a fresh git clone there are no such files, so you can skip this step.
 \item inside the lapack95 directory run
 \begin{verbatim}
- make libintel64 INSTALL_DIR=.
+ make -f makefile.intel libintel64 INSTALL_DIR=.
 \end{verbatim}
 This may take a 1-2 minutes since there are many files to compile.
 \item move the created *.mod files from the lapack95/include directory to the lapack95 directory. If they are not in the lapack95/include directory, they may be in some subdirectory.
+\begin{verbatim}
+ mv include/*.mod .
+\end{verbatim}
 \item verify that there is a new *.a file in the lapack95/lib directory. if the new file is not named  libmkl\_lapack95.a rename it.
 \item leave the lapack95 directory.
 \end{enumerate}
@@ -138,6 +141,10 @@ INCLUDEPATH2 = <path to your castf90 code>/lapack95
 \item in line 4 set
 \begin{verbatim}
 LIBPATH2 = <path to your castf90 code>/lapack95/lib
+\end{verbatim}
+\item verify that the library name in line 6 corresponds to the library name in /lapack95/lib without the ending and starting wiht -l instead of lib. For example if the library in /lapack95/lib is called libmkl\_lapack95.a line 6 should read 
+\begin{verbatim}
+ lib2 = -lmkl_lapack95 
 \end{verbatim}
 \item run
 \begin{verbatim}
@@ -285,7 +292,7 @@ run
 \subsection{Run including the whole data handling process}
 Before running the script the first time or after an update, please verify that the variable \textit{sourcedir} in run\_analogs\_case.sh (line 61) is set to the directory containing the source code.
 
-To anable parallel calculation the OMP\_NUM\_THREADS environement variable has to be set. The command depends on the active shell, but might be something like 
+To enable parallel calculation the OMP\_NUM\_THREADS environement variable has to be set. The command depends on the active shell, but might be something like 
 \begin{verbatim}
  export OMP_NUM_THREADS=12
 \end{verbatim}
@@ -300,6 +307,9 @@ Then to start the procedure, run
 \begin{verbatim}
  ./run_analogs_case.sh
 \end{verbatim}
+run\_analogs\_case.sh, together with the called getNCEP\_slp.sh 
+and retrieve.sh scripts, downloads NCEP data, cuts the chosen domain and time period and applies detrending if this is selected in the options, writes the configuration file for castf90 and then executes castf90.
+
 run\_analogs\_case.sh accepts a number of options:
 \begin{itemize}
  \item Options to set I/O paths:
@@ -420,7 +430,7 @@ Suppose you have already constructed your input data files (and seasonal cycle f
  my_atts%predictordom = "-80.0,50.0,22.5,70.0"
 /
 \end{verbatim}
-There are three groups: \textit{\&FILES}, \textit{\&PARAMS} and \textit{\&ATTS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file, the output file and the files containing the seasonal cycle to be removed from the archive and the  simulation respectively. These are character chain type variables and thus the values need to be in double quotes. The variables have to be present even if no seasonal cycle should be removed - the values are ignored in this case though. The last two are files that will be written by the fortran program. That means that you need write permissions in the directory where they are based.
+There are three groups: \textit{\&FILES}, \textit{\&PARAMS} and \textit{\&ATTS}. Each group contains some variables with values assigned. The values for the variables in \textit{\&FILES} are the file names including the full path for the archive file, the simulation file, the output file and the files containing the seasonal cycle to be removed from the archive and the  simulation respectively.  These are character chain type variables and thus the values need to be in double quotes. The variables have to be present even if no seasonal cycle should be removed - the values are ignored in this case though. If the seasonal cycle should be removed, appropriate files have to be created before running castf90. You can for example use cdo ydaymean \textit{your\_data\_file} for this purpose. The last two are files that will be written by the fortran program. That means that you need write permissions in the directory where they are based.
 
 In the \textit{\&PARAMS} group:
 \begin{itemize}
