@@ -146,9 +146,9 @@ $(mod_path)/$(mod95): $(inc_path)/$(iface_95)
 .PHONY: build lib mod clean check checkdir lib32 libia32 libem64t libintel64 objects clean_obj cleania32 cleanintel64
 
 libia32 lib32: checkdir
-	make PLAT=lnx32 build MKLROOT=$(MKLROOT) INSTALL_DIR=$(INSTALL_DIR) FC=$(FC)
+	make -f makefile.intel PLAT=lnx32 build MKLROOT=$(MKLROOT) INSTALL_DIR=$(INSTALL_DIR) FC=$(FC)
 libintel64 libem64t: checkdir
-	make PLAT=lnx32e build interface=$(interface) MKLROOT=$(MKLROOT) INSTALL_DIR=$(INSTALL_DIR) FC=$(FC)
+	make -f makefile.intel PLAT=lnx32e build interface=$(interface) MKLROOT=$(MKLROOT) INSTALL_DIR=$(INSTALL_DIR) FC=$(FC)
 
 build:	check lib mod clean_obj
 lib:	$(INSTALL_DIR)/lib/$(IA)/$(mkl_lapack95_lib)
@@ -157,7 +157,7 @@ mod:	$(mod_path)/$(mod95)
 $(INSTALL_DIR)/lib/$(IA)/$(mkl_lapack95_lib):
 	mkdir -p $(obj77_path)
 	$(FC) $(SPEC_OPT) $(FOPTS) $(opt_mod)$(obj77_path) $(optsc) -o $(mod77) $(src_path)/$(iface_77)
-	make objects
+	make -f makefile.intel objects
 	cd $(obj_path) ; $(LIBR) $(mkl_lapack95_lib) *.$(sufobj)
 	mv $(obj_path)/$(mkl_lapack95_lib) $(INSTALL_DIR)/lib/
 
