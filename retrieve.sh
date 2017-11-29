@@ -95,7 +95,7 @@ do
    
     cdo -s splitgrid toto.nc toto
 # Center longitudes at 0 meridian 
-    cdo -s sellonlatbox,${lon1_1},${lon2_1},${lat1_0},${lat2_0} toto01.nc2 ${file}
+    cdo -s sellonlatbox,${lon1_1},${lon2_1},${lat1_0},${lat2_0} toto01.nc ${file}
    fi
 done
 
